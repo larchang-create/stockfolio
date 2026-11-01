@@ -1,57 +1,71 @@
-# 個人研究服務設定
+# 個人登入及跨裝置同步設定
 
-目前狀態：GitHub Pages 前端已發布；後端程式已準備但尚未部署，沒有正式服務網址、個人 OpenAI API 金鑰或實際付費分析結果。模擬測試不等同正式資料驗證。
+先完成本頁的登入與名單同步，再處理公開資料及 AI 分析。這一步不需要 OpenAI API 金鑰，也不需要購買自訂網域。服務方案與費用以 Cloudflare 註冊頁實際顯示為準。
 
-## 1. 建立個人 Cloudflare Worker
+目前尚未取得個人 Cloudflare 帳號的操作權限，因此後端未正式部署、未取得雲端網址，也尚未進行兩台實機登入同步驗收。公開 GitHub Pages 仍是本機儲存。
 
-1. 到 https://dash.cloudflare.com/sign-up 建立個人帳號。
-2. 到 Workers & Pages，新增 Worker，選擇匯入 GitHub 儲存庫，授權並選取 `larchang-create/stockfolio`。
-3. Worker 名稱使用 `stockfolio-research`，專案根目錄為儲存庫根目錄。部署指令使用 `npx wrangler deploy`。不需買網域，不需連接公司帳號。
-4. 儲存庫根目錄已有 `wrangler.jsonc`、`package.json` 和 `backend/worker.mjs`。這個 Worker 只提供 API，網站繼續由原本 GitHub Pages 發布。
-5. 若自動建立流程因缺少環境設定仍能部署，這是正常的；未設定時 /health 回報 ready:false，研究請求回報 503，不會假裝成功。
+## 1. 建立個人帳號並連接 GitHub
 
-## 2. 個人 OpenAI API
+1. 到 [Cloudflare](https://dash.cloudflare.com/sign-up) 使用自己的信箱建立帳號。
+2. Workers & Pages → 建立應用程式／匯入 GitHub，選擇 `larchang-create/stockfolio`。
+3. 選 Worker（不是 Pages），名稱 `stockfolio`，根目錄使用儲存庫根目錄。部署指令為 `npx wrangler deploy`，無需前端建置。
+4. 儲存庫已有網站檔案與 Worker。首次部署未設定登入時顯示「尚未完成個人登入設定」，屬於預期狀態。
+5. 記下實際 `https://stockfolio.<你的子網域>.workers.dev` 網址。
 
-到 https://platform.openai.com/ 建立個人 API 專案，啟用付費用量並建立該專案的金鑰。模型和網路搜尋會按使用量計費。請從小額測試開始，查看實際用量；平台上的預算通知不要當成保證會停止請求的硬上限。
+## 2. 建立 D1 資料庫
 
-不要把金鑰貼到聊天、GitHub、網站表單或公開文件。
+1. Cloudflare 控制台 → D1 → 建立資料庫，名稱 `stockfolio`。
+2. 資料庫 Console 執行儲存庫 `migrations/0001_sync.sql` 內容，建立兩張表。
+3. 記下 Database ID。請提供此非秘密識別碼，接手 AI 即可將下列設定加入 `wrangler.jsonc` 後發布。不要使用範例字串直接部署。
 
-## 3. 在 Worker 設定三個值
+```json
+"d1_databases": [{
+  "binding": "DB",
+  "database_name": "stockfolio",
+  "database_id": "此處必須是實際 Database ID",
+  "migrations_dir": "migrations"
+}]
+```
 
-Cloudflare Worker → Settings → Variables and Secrets：
+設定應保存於儲存庫，避免後續部署移除只在控制台建立的綁定。若用命令列，也可在設定後執行 `npx wrangler d1 migrations apply DB --remote` 套用同一份建表檔。
 
-- `OPENAI_API_KEY`：個人 OpenAI API 金鑰，類型為 Secret。
-- `OPENAI_MODEL`：你的 API 帳號可用、同時支援 Responses API、web_search 及結構化輸出的模型 ID。模型在正式測試時確認，程式不硬寫特定型號。
-- `APP_ACCESS_TOKEN`：自行產生至少 32 字元的隨機通行碼，類型為 Secret。這是網站用來存取你後端的通行碼，與 OpenAI 金鑰不同。
-- `ALLOWED_ORIGIN`：已在設定檔設為 `https://larchang-create.github.io`。移轉前端網域時要一起更新。
+## 3. 設定自己的信箱登入
 
-修改後部署 Worker，取得實際的 `https://stockfolio-research.<帳號>.workers.dev` 網址。健康檢查只確認設定是否存在，不會呼叫付費模型。
+1. 啟用 Cloudflare Zero Trust，建立自己的 team name，取得 `<team>.cloudflareaccess.com`。
+2. 在 Access → Applications 新增 Self-hosted 應用，完整主機名稱填第一步的 Worker 網址主機，保護整個網站，不只 `/api`。
+3. 新增 Allow 規則，只允許自己的個人 Email。登入方式使用 One-time PIN（信箱一次性驗證碼）。不要使用 Everyone 規則。
+4. 取得此 Access 應用程式的 Audience（AUD）。
+5. 將下列一般設定加入 `wrangler.jsonc` 的 `vars`，重新部署：
 
-## 4. 連接網站
+```json
+"vars": {
+  "ACCESS_TEAM_DOMAIN": "你的team.cloudflareaccess.com",
+  "ACCESS_AUD": "實際的應用程式AUD",
+  "OWNER_EMAIL": "你要登入的個人信箱"
+}
+```
 
-前往 https://larchang-create.github.io/stockfolio/#academy ，點右上角「服務設定」，輸入 Worker 網址及 `APP_ACCESS_TOKEN`。這裡絕對不輸入 OpenAI API 金鑰。
+這三個設定不是 API 密鑰，但 OWNER_EMAIL 是個人資訊。若不希望信箱出現在公開儲存庫，可改用 Cloudflare Secret 設定 `OWNER_EMAIL`，不要寫進 vars。任何 API Token、登入驗證碼或帳號密碼都不要貼到聊天或 GitHub。
 
-通行碼僅保留在 sessionStorage，關閉工作階段後可能需重新輸入。不會包含在股票 JSON 備份。公司報告和個人筆記仍存在本機 localStorage，沒有跨裝置同步。
+請使用 hostname-based Access，後端會驗證 `Cf-Access-Jwt-Assertion`；如果改用其他 Access 模式，必須確認也傳送此簽章憑證。網站與 API 使用同一網域，手機不用跨網域 Cookie 或手動輸入服務通行碼。
 
-連接後：
+## 4. 驗收及搬移舊資料
 
-- 新增股票會發起資料取得及研究請求；已加入的公司可按「同步」。
-- 研究院選股後按「取得資料並分析」執行。關閉頁面不會繼續輪詢或排程追蹤。
-- 重複研究同代號會優先使用後端約 6 小時快取，產生時間在報告中顯示；「重新取得」不代表強制略過快取。
-- 報告與手動研究筆記分開保存，不會用 AI 文字覆寫你的原始假設。
-- 第一版是「AI 搜尋公開來源 → 依證據整理六區塊」。不是已完整整合 SEC/MOPS XBRL 的資料庫；數字擷取和判讀仍需核對原始文件。報告若沒有搜尋來源、引用不完整、格式錯誤或請求失敗，會顯示錯誤並保留舊結果。
-- ETF／基金暫不套公司分析；股價、估值或資料不足時應列為未知，不是即時報價保證。
-- 公開前端不會公開後端金鑰，但目前還沒有網站登入頁；後端以服務通行碼保護。登入及跨裝置資料庫是後續工作。
+1. 手機關閉公司 Wi-Fi／VPN，使用行動網路開啟個人 Worker 網址。
+2. 用自己的信箱登入，確認網站顯示「已同步」。
+3. 在電腦登入同一個網址及信箱；新增 MSFT，手機重新回到頁面或等待約 30 秒，確認出現。
+4. 手機新增台股 2330，在電腦確認；再測試研究草稿、觀察標記、刪除及重新整理。
+5. 測試兩台同時修改同一段筆記，應顯示兩個版本，由你選擇。
+6. 測試已開啟頁面暫時離線後修改，恢復網路並按「立即同步」，確認另一台看到更新。
+7. 從原 [GitHub 網站](https://larchang-create.github.io/stockfolio/) 匯出 JSON，於雲端版匯入（會詢問取代目前名單；先保留備份）。
+8. 驗收完成後，把 `public/cloud-config.js` 的網址設為實際 Worker 首頁。GitHub 頁面上的「登入雲端版」會帶你到該網址。
 
-## 5. 第一次真實驗證
+此後電腦、手機都使用這個 Worker 網址；不需要開 Codex 或原本的 Omni。
 
-1. 先測 MSFT：檢查公司身分、官方財報期末日期、六區塊與來源連結。
-2. 再測台股 2330 與另一個未預設代號，確認不是固定樣本。
-3. 逐項對照原始文件的期間、幣別、單位、單季／累計、合併／個體，及現金支出／租賃口徑。
-4. 到個人 OpenAI API 用量頁檢查實際費用與回應時間，再決定要不要擴大名單。
+## 5. 同步完成後再啟用研究服務
 
-參考：
-- https://developers.cloudflare.com/workers/get-started/dashboard/
-- https://developers.cloudflare.com/workers/configuration/secrets/
-- https://developers.openai.com/api/docs/guides/tools-web-search
-- https://developers.openai.com/api/docs/guides/structured-outputs
+此階段先不設定付費模型。後續再選擇個人資料與 AI 供應商；目前保留的研究模組使用 OpenAI Responses API 搜尋公開資料並整理六個問題。
+
+若採用此模組，在 Worker 設定 `OPENAI_API_KEY`（Secret）及 `OPENAI_MODEL`，再進行真實資料與用量驗證。新增股票不會自動呼叫 AI，需按「取得資料並分析」。這不是已整合所有台美股結構化財報的資料庫；ETF 尚不套公司研究。模型失敗不覆寫舊報告，報告不覆寫手動草稿。
+
+官方說明：[Worker 與 Access](https://developers.cloudflare.com/workers/configuration/cloudflare-access/)、[D1](https://developers.cloudflare.com/d1/)、[Workers GitHub 整合](https://developers.cloudflare.com/workers/ci-cd/builds/git-integration/github-integration/)。

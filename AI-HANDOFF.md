@@ -1,15 +1,21 @@
-# 給接手 AI 的說明
+# 給接手 AI
 
-使用者希望個人選股並定期追蹤台股與美股，要求可從公司網域/VPN 以外使用，並可由個人帳號或其他 AI 接手。不要部署到 NVIDIA/Astra 或依賴原始 Omni。
+優先順序：先完成個人網站、信箱登入及跨裝置相同名單／筆記，再更新公開資料抓取與六問題研究。所有服務必須屬於使用者個人帳號，可在公司 VPN 以外使用，不依賴 NVIDIA/Astra/Omni。
 
-這是無建置的靜態 HTML/CSS/JavaScript 工具。入口 `public/index.html`，樣式 `public/style.css`，行為 `public/app.js`。保留繁體中文與手機版支援。
+目前個人 GitHub `larchang-create/stockfolio` 主分支，由 Actions 發布 public 到 https://larchang-create.github.io/stockfolio/ 。這是可用的本機儲存預覽；尚未取得個人 Cloudflare 帳號／D1／Access 實際設定，不能宣稱跨裝置已上線。使用者先前表示沒有雲端/API帳號，請帶其完成 SETUP.md。不要先要求付費 AI 金鑰。
 
-已實作瀏覽器本機股票清單、手動數值篩選、追蹤紀錄、CSV/JSON 移轉、行事曆提醒；尚未接真實行情、全市場篩選、自動更新或背景通知。請清楚告知使用者，不能把示範資料當成真實行情。
+架構：
+- public/index.html、style.css、app.js：繁體中文介面，台股、美股、總經、研究院。新增只要市場及代號。不要恢復大量教學橫幅。
+- public/sync.js：純 JavaScript 3-way merge + 同步 Client；GET/PUT /api/state、樂觀版本、帳號本機 pending cache、離線恢復及衝突選擇。別將同步改成單純最後寫入覆蓋。
+- backend/worker.mjs：網站與 API 同域。驗證 Cloudflare Access RS256 JWT（issuer、aud、exp、nbf、OWNER_EMAIL），只用已簽章 email。DB schema 在 migrations/0001_sync.sql。D1 batch 交易 CAS mutation_id guard，資料分列存放並以 JSON 分批輸入，避免大量股票超過每次查詢數限制。
+- wrangler.jsonc：同時提供 public assets，run_worker_first:true。尚需實際 d1_databases 與 Access vars，不能捏造 Database ID／個人信箱。部署未設定會 fail closed。
+- public/cloud-config.js：取得實際雲端網址後填入。GitHub 預覽保持本機模式；不同 origin 的舊 localStorage 要用 JSON 搬移，不能靜默讀取。
+- backend/research.mjs：保留 OpenAI 搜尋與 JSON schema 報告產生，尚未實際付費呼叫。新加入股票不自動研究。AI 結果存在 analysis，手動草稿 research，不得互相覆寫。
 
-原環境 Sites 發布回應為「Sites is not yet enabled for this workspace」。未成功建立 Sites 專案，沒有 Sites project_id；目前網站已改由個人 GitHub Pages 發布：https://larchang-create.github.io/stockfolio/。GitHub 連接已確認，個人帳號為 larchang-create；目前可存取的儲存庫清單為空。連接工具沒有建立儲存庫及設定 Pages 的功能。已準備 .github/workflows/pages.yml，待個人儲存庫建立並啟用 Pages 的 GitHub Actions 發布來源後，即可上傳專案並發布。先確認個人代管連接，再把 public 部署到使用者個人帳號，測試無公司登入下的公開存取。不要聲稱本機網址是公開網站。
+資料：stocks[] 含穩定 UUID id、market、symbol、name、watch、數值、日期、notes、history、research、analysis。以 market:symbol 為自然識別合併。備份 schemaVersion:1；本機 key stockfolio-v1；雲端帳號 cache key stockfolio-account:<verified email> 保存 base/current/revision。本機資料不自動灌入新登入的帳號。
 
-資料結構：JSON {schemaVersion:1,exportedAt,stocks:[]}。股票含 market,symbol,name,price,pe,yield,asOf,nextReview,frequency,watch,notes,demo,history:[{date,notes}]。localStorage key 是 stockfolio-v1，ID 為本機 UUID。JSON 匯入會重新產生 ID。移轉網域前請使用者先匯出備份。
+同步每 30 秒／focus／online；持久化修改 debounce 250ms。研究草稿未存及編輯 dialog 開啟時，延後套遠端更新。同欄衝突顯示兩版本；目前一批選本機或遠端，其他不衝突欄位仍合併。尚未做到逐欄不同選擇或多人協作。頁面必須先開啟才能離線編輯，不是 PWA。
 
-下一步：取得個人代管環境完成公開發布，確認正式選股策略與行情來源，再規劃安全的資料 API、雲端儲存、排程及通知。不要在前端暴露行情或 AI 金鑰。
+驗證：Node22.13+ npm test；Python tests/run_browser.py 需 Chrome。SQLite 執行實際 schema、交易 rollback、stale CAS、兩裝置 Client、離線重啟、刪除與衝突、RSA token 簽章；瀏覽器驗證名單及草稿操作。模型是 mock、實際 Cloudflare 兩台裝置登入及同步尚待部署後驗收。
 
-目前已有研究院及精簡介面；後端 backend/worker.mjs 使用 OpenAI Responses web_search，再用 JSON schema 整理六區塊，沒有硬編股票樣本。wrangler.jsonc 可部署到個人 Cloudflare Worker。必須等使用者建立個人服務並設定金鑰後才能進行真實測試；目前只有模擬測試通過。前端服務設定只輸入 Worker 網址和 APP_ACCESS_TOKEN，不能輸入 OpenAI 金鑰。報告存在股票 analysis 欄位；手動草稿仍在 research 欄位。完整流程見 SETUP.md。
+研究框架：公司如何賺錢、成長來源、品質（現金/利潤/AR/存貨）、成長代價、價格隱含假設、論點失效與下次查證。原始參考文章 https://unclestocknotes.substack.com/p/32e 及 /p/22b；使用者期待以文章為基準，重新讀取後再聲稱分析符合文章。需要指出公司事實、管理層預測、推論、未知及可點原始來源，不使用虛構行情補空值。未進行新一輪文章內容驗證。

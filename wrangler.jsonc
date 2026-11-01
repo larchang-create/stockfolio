@@ -1,9 +1,7 @@
 {
-  "name": "stockfolio-research",
-  "main": "backend/worker.mjs",
-  "compatibility_date": "2026-11-01",
-  "workers_dev": true,
-  "vars": {
-    "ALLOWED_ORIGIN": "https://larchang-create.github.io"
-  }
+ "name": "stockfolio",
+ "main": "backend/worker.mjs",
+ "compatibility_date": "2026-11-01",
+ "workers_dev": true,
+ "assets": {"directory": "./public", "binding": "ASSETS", "run_worker_first": true}
 }
