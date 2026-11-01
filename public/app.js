@@ -75,13 +75,13 @@ async function connectCloud(){
  // GitHub Pages is the local preview. Personal data APIs exist only on the cloud site.
  if(location.hostname.endsWith('github.io')||['localhost','127.0.0.1',''].includes(location.hostname))return;
  try{
-  const request=(path,options={})=>fetch(path,{...options,credentials:'same-origin',redirect:'error',signal:AbortSignal.timeout(25000)});
-  const res=await request('/api/session');if(!res.ok)throw Error('登入或雲端服務尚未完成設定。');const account=await res.json();if(!account.email||!account.syncReady)throw Error('雲端資料庫尚未連接。');
-  cloudEmail=account.email;const cacheKey='stockfolio-account:'+cloudEmail;let cached=null;
+  const request=async(path,options={})=>{const response=await fetch(path,{...options,credentials:'same-origin',redirect:'error',signal:AbortSignal.timeout(25000)});if(response.status===401&&cloudClient){cloudClient.stop();serviceConfig=null;toast('登入已過期，請重新登入。');setTimeout(()=>location.assign('/login'),1500)}return response};
+  const res=await request('/api/session');if(res.status===401){location.assign('/login');return}if(!res.ok)throw Error('登入或雲端服務尚未完成設定。');const account=await res.json();if(!account.accountId||!account.syncReady)throw Error('雲端資料庫尚未連接。');
+  cloudEmail=account.accountId;const cacheKey='stockfolio-account:'+cloudEmail;let cached=null;
   try{cached=JSON.parse(localStorage.getItem(cacheKey)||'null')}catch{}
   cloudClient=new StockfolioSync.Client({request,cached,isEditing:editing,save:data=>localStorage.setItem(cacheKey,JSON.stringify(data)),onData:applyCloudData,onStatus:syncStatus});
   // Read only this account's pending cache while the first network sync runs.
-  stocks=cached?.current||[];render();$('#account-email').textContent=cloudEmail;$('#account-state').textContent='名單、研究筆記及已儲存結果會同步至這個帳號。';$('#service-form').hidden=true;$('#cloud-account-actions').hidden=false;$('#service-settings').textContent='我的帳號';
+  stocks=cached?.current||[];render();$('#account-email').textContent=account.label||'我的個人資料';$('#account-state').textContent='名單、研究筆記及已儲存結果會同步至這個帳號。';$('#service-form').hidden=true;$('#cloud-account-actions').hidden=false;$('#service-settings').textContent='我的帳號';
   serviceConfig=account.analysisReady?{url:location.origin+'/api/'}:null;
   await cloudClient.sync();setInterval(()=>cloudClient.sync(),30000);
   window.addEventListener('focus',()=>cloudClient.sync());window.addEventListener('online',()=>cloudClient.sync());
@@ -99,3 +99,5 @@ setView(['tw','us','macro','academy'].includes(location.hash.slice(1))?location.
 
 
 connectCloud();
+
+$('#cloud-logout').onclick=async()=>{if(researchDirty||cloudClient?.dirty){toast('請先儲存筆記並完成同步，再登出；也可以先匯出備份。');return}try{const r=await fetch('/api/logout',{method:'POST',credentials:'same-origin',signal:AbortSignal.timeout(15000)});if(!r.ok)throw Error();cloudClient?.stop();if(cloudEmail)localStorage.removeItem('stockfolio-account:'+cloudEmail);location.assign('/login')}catch{toast('登出未完成，請確認網路後重試。')}};

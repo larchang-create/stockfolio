@@ -1,21 +1,21 @@
-# 給接手 AI
+# 接手重點：已改成網站密碼登入
 
-優先順序：先完成個人網站、信箱登入及跨裝置相同名單／筆記，再更新公開資料抓取與六問題研究。所有服務必須屬於使用者個人帳號，可在公司 VPN 以外使用，不依賴 NVIDIA/Astra/Omni。
+使用者認為 Zero Trust Free 還要付款方式太麻煩，明確取消此方式。不要再引導設定 Zero Trust／Access、AUD、個人信箱白名單或綁卡。沿用已建立的個人 Cloudflare Worker，使用單一網站密碼及 D1，電腦手機共用一份資料。
 
-目前個人 GitHub `larchang-create/stockfolio` 主分支，由 Actions 發布 public 到 https://larchang-create.github.io/stockfolio/ 。這是可用的本機儲存預覽；尚未取得個人 Cloudflare 帳號／D1／Access 實際設定，不能宣稱跨裝置已上線。使用者先前表示沒有雲端/API帳號，請帶其完成 SETUP.md。不要先要求付費 AI 金鑰。
+個人 GitHub：larchang-create/stockfolio，main 已連接 GitHub Pages 及 Cloudflare Builds。
+個人雲端：https://stockfolio.larry17342.workers.dev/ 。GitHub Pages https://larchang-create.github.io/stockfolio/ 是本機預覽與舊備份匯出入口。
 
-架構：
-- public/index.html、style.css、app.js：繁體中文介面，台股、美股、總經、研究院。新增只要市場及代號。不要恢復大量教學橫幅。
-- public/sync.js：純 JavaScript 3-way merge + 同步 Client；GET/PUT /api/state、樂觀版本、帳號本機 pending cache、離線恢復及衝突選擇。別將同步改成單純最後寫入覆蓋。
-- backend/worker.mjs：網站與 API 同域。驗證 Cloudflare Access RS256 JWT（issuer、aud、exp、nbf、OWNER_EMAIL），只用已簽章 email。DB schema 在 migrations/0001_sync.sql。D1 batch 交易 CAS mutation_id guard，資料分列存放並以 JSON 分批輸入，避免大量股票超過每次查詢數限制。
-- wrangler.jsonc：同時提供 public assets，run_worker_first:true。尚需實際 d1_databases 與 Access vars，不能捏造 Database ID／個人信箱。部署未設定會 fail closed。
-- public/cloud-config.js：取得實際雲端網址後填入。GitHub 預覽保持本機模式；不同 origin 的舊 localStorage 要用 JSON 搬移，不能靜默讀取。
-- backend/research.mjs：保留 OpenAI 搜尋與 JSON schema 報告產生，尚未實際付費呼叫。新加入股票不自動研究。AI 結果存在 analysis，手動草稿 research，不得互相覆寫。
+最新程式移除 Access，部署會嘗試自動準備 D1，仍需使用者於 Worker Settings → Variables and Secrets 設定 Secret SITE_PASSWORD（至少 16 字元），再 Save and deploy。不要讓使用者把密碼貼到聊天或 commit。不要聲稱本機測試代表已正式啟用；確認 Cloudflare 部署、DB 綁定及兩台實機登入同步。
 
-資料：stocks[] 含穩定 UUID id、market、symbol、name、watch、數值、日期、notes、history、research、analysis。以 market:symbol 為自然識別合併。備份 schemaVersion:1；本機 key stockfolio-v1；雲端帳號 cache key stockfolio-account:<verified email> 保存 base/current/revision。本機資料不自動灌入新登入的帳號。
+- backend/password-auth.mjs：登入、登出、Secure HttpOnly SameSite Strict __Host- Cookie，HMAC 簽章及 DB hashed token 驗證，30 天期限，改 Secret 使舊憑證失效；IP 與全站時間窗限流。initializeDB 自動建表，保留既有資料。
+- backend/worker.mjs：公開 /login、/login.js、/style.css 與不含秘密的 /api/setup；其餘 API 必須登入；修改請求驗證 Origin。資料 owner 固定 personal，不是多租戶系統。
+- wrangler.jsonc：name stockfolio、assets 同域 run_worker_first:true、preview_urls:false，d1_databases 綁定 DB、database_name stockfolio，自動配置無 ID。最低 Wrangler4.45。若正式已有 DB 優先保留其 ID；若建置 token 沒 D1 權限，請依 SETUP.md 修正，不能破壞舊資料庫。
+- public/login.html、login.js：簡潔密碼頁，未設定提供一次設定引導；不保存密碼。app.js 用 /api/session 的 accountId，不再用 email。登出需先儲存、同步；清除該帳號本機 cache。
+- public/sync.js：3-way merge、離線暫存、版本 CAS、防覆蓋、衝突選版本。同步名單、欄位、檢視紀錄、研究草稿及已保存 AI 報告。
+- public/cloud-config.js 已填實際個人雲端網址。
 
-同步每 30 秒／focus／online；持久化修改 debounce 250ms。研究草稿未存及編輯 dialog 開啟時，延後套遠端更新。同欄衝突顯示兩版本；目前一批選本機或遠端，其他不衝突欄位仍合併。尚未做到逐欄不同選擇或多人協作。頁面必須先開啟才能離線編輯，不是 PWA。
+測試 Node22.13+ npm test、python3 tests/run_browser.py；需 Chrome。SQLite 執行真實交易和 schema；同步測試涵蓋兩裝置、離線重啟、刪除及衝突，登入測試涵蓋密碼、Cookie、登出撤銷、改密碼失效、Origin 與限流。模型測試仍用 mock，未啟用付費分析。
 
-驗證：Node22.13+ npm test；Python tests/run_browser.py 需 Chrome。SQLite 執行實際 schema、交易 rollback、stale CAS、兩裝置 Client、離線重啟、刪除與衝突、RSA token 簽章；瀏覽器驗證名單及草稿操作。模型是 mock、實際 Cloudflare 兩台裝置登入及同步尚待部署後驗收。
+使用者偏好：繁體中文，簡單介面；左側台股、美股、總經概況、研究院。新增只要市場與代號，不要加大量教學橫幅。先完成同步，再做抓取分析，不要新增股票就自動付費分析。
 
-研究框架：公司如何賺錢、成長來源、品質（現金/利潤/AR/存貨）、成長代價、價格隱含假設、論點失效與下次查證。原始參考文章 https://unclestocknotes.substack.com/p/32e 及 /p/22b；使用者期待以文章為基準，重新讀取後再聲稱分析符合文章。需要指出公司事實、管理層預測、推論、未知及可點原始來源，不使用虛構行情補空值。未進行新一輪文章內容驗證。
+研究框架：公司怎麼賺錢、成長、品質、投入、價格假設、論點失效。原始文章 https://unclestocknotes.substack.com/p/32e 及 /p/22b。backend/research.mjs 保留 AI 搜尋及六區塊，analysis 與手動 research 分開存；接手應重新讀文章再聲稱符合原文。

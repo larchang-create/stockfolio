@@ -1,2 +1,2 @@
-// Set after the personal Cloudflare site has been deployed. Never put credentials here.
-window.STOCKFOLIO_CLOUD_URL='';
+// Public site address only. Passwords are configured as Cloudflare Secrets.
+window.STOCKFOLIO_CLOUD_URL='https://stockfolio.larry17342.workers.dev/';

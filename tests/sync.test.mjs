@@ -2,7 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {DatabaseSync} from 'node:sqlite';
 import {readFileSync} from 'node:fs';
-import worker,{identity,readState,writeState} from '../backend/worker.mjs';
+import worker,{readState,writeState} from '../backend/worker.mjs';
+import {identity,initializeDB} from '../backend/password-auth.mjs';
 import '../public/sync.js';
 const {merge,Client}=globalThis.StockfolioSync;
 function database(){const db=new DatabaseSync(':memory:');db.exec(readFileSync(new URL('../migrations/0001_sync.sql',import.meta.url),'utf8'));const prepare=sql=>({bind(...args){return {sql,args,async run(){const s=db.prepare(sql);return {results:s.columns().length?s.all(...args):(s.run(...args),[])}}}}});return {prepare,async batch(items){db.exec('BEGIN');try{const results=[];for(const q of items)results.push(await q.run());db.exec('COMMIT');return results}catch(e){db.exec('ROLLBACK');throw e}},db}}
@@ -43,30 +44,54 @@ test('in flight save retains edits made while a write was pending',async()=>{
  const db=database(),s=stock(),a=device(db,'me');await a.client.sync();a.client.commit([s]);const pending=a.client.sync();await tick();a.client.commit([{...s,notes:'later'}]);await pending;await a.client.sync();assert.equal((await readState(db,'me')).stocks[0].notes,'later');a.client.stop();
 });
 test('editing a form defers remote changes',async()=>{let applied=false;const c=new Client({request:async()=>Response.json({revision:0,stocks:[]}),onData:()=>applied=true,onStatus:()=>{},isEditing:()=>true});await c.sync();assert.equal(applied,false);c.stop()});
-const pair=await crypto.subtle.generateKey({name:'RSASSA-PKCS1-v1_5',modulusLength:2048,publicExponent:new Uint8Array([1,0,1]),hash:'SHA-256'},true,['sign','verify']);
-const jwk=await crypto.subtle.exportKey('jwk',pair.publicKey);jwk.kid='fixture';
-const encode=x=>Buffer.from(JSON.stringify(x)).toString('base64url');
-const env={ACCESS_TEAM_DOMAIN:'stockfolio-test.cloudflareaccess.com',ACCESS_AUD:'test-aud',OWNER_EMAIL:'person@example.test'};
-async function token(extra={}){const h=encode({alg:'RS256',kid:'fixture'}),p=encode({iss:'https://'+env.ACCESS_TEAM_DOMAIN,aud:[env.ACCESS_AUD],email:env.OWNER_EMAIL,exp:Date.now()/1000+600,...extra}),input=h+'.'+p;return input+'.'+Buffer.from(await crypto.subtle.sign('RSASSA-PKCS1-v1_5',pair.privateKey,new TextEncoder().encode(input))).toString('base64url')}
-const req=t=>new Request('https://stockfolio.test/api/state',{headers:{'Cf-Access-Jwt-Assertion':t}});
-const jwks=async()=>Response.json({keys:[jwk]});
-test('Access signature, intended app, expiration, issuer and personal owner are verified',async()=>{
- assert.equal(await identity(req(await token()),env,jwks),env.OWNER_EMAIL);
- for(const claims of [{aud:['wrong']},{exp:1},{iss:'https://evil.test'},{email:'other@example.test'},{nbf:Date.now()/1000+600}])await assert.rejects(identity(req(await token(claims)),env,jwks));
- const parts=(await token()).split('.');parts[1]=encode({iss:'https://'+env.ACCESS_TEAM_DOMAIN,aud:['test-aud'],email:env.OWNER_EMAIL,exp:Date.now()/1000+600,forged:true});await assert.rejects(identity(req(parts.join('.')),env,jwks));
- await assert.rejects(identity(new Request('https://test',{headers:{'Cf-Access-Authenticated-User-Email':env.OWNER_EMAIL}}),env,jwks));
-});
-test('unconfigured deployment fails closed; health reveals no keys and foreign writes fail',async()=>{assert.equal((await worker.fetch(new Request('https://test/'),{})).status,503);assert.deepEqual(await (await worker.fetch(new Request('https://test/api/health'),{})).json(),{syncReady:false});const t=await token();const response=await worker.fetch(new Request('https://stockfolio.test/api/state',{method:'PUT',headers:{'Cf-Access-Jwt-Assertion':t,Origin:'https://evil.test'}}),env);assert.equal(response.status,403)});
-test('authenticated API round trip works without any model API credentials',async()=>{
- const db=database(),t=await token(),settings={...env,DB:db};
- const call=(path,method='GET',body)=>worker.fetch(new Request('https://stockfolio.test'+path,{method,headers:{'Cf-Access-Jwt-Assertion':t,Origin:'https://stockfolio.test','Content-Type':'application/json'},...(body?{body:JSON.stringify(body)}:{})}),settings);
- const session=await (await call('/api/session')).json();assert.equal(session.syncReady,true);assert.equal(session.analysisReady,false);
- const before=await (await call('/api/state')).json(),s=stock();assert.equal((await call('/api/state','PUT',{revision:before.revision,stocks:[s]})).status,200);
- assert.equal((await call('/api/state','PUT',{revision:before.revision,stocks:[]})).status,409);
- assert.deepEqual((await (await call('/api/state')).json()).stocks,[s]);
- assert.equal((await call('/api/research','POST',{market:'美股',symbol:'MSFT'})).status,503);
-});
 test('large watchlists use a bounded number of database statements',async()=>{
  const db=database();let count=0;const batch=db.batch.bind(db);db.batch=items=>{count=items.length;return batch(items)};
  const list=Array.from({length:1000},(_,i)=>stock('S'+i,{notes:'x'.repeat(1000)}));await writeState(db,'me',{revision:0,stocks:list});assert.ok(count<10);assert.equal((await readState(db,'me')).stocks.length,1000);
+});
+
+const env={SITE_PASSWORD:'fixture-only-password-long-enough'};
+function request(path,method='GET',body,token,origin='https://stockfolio.test'){
+ return new Request('https://stockfolio.test'+path,{method,headers:{Origin:origin,'Content-Type':'application/json',...(token?{Cookie:token}:{})},...(body?{body:JSON.stringify(body)}:{})});
+}
+async function signin(settings){const res=await worker.fetch(request('/api/login','POST',{password:settings.SITE_PASSWORD}),settings);assert.equal(res.status,200);return res.headers.get('Set-Cookie').split(';')[0]}
+test('empty databases initialize automatically without manual SQL or Access',async()=>{
+ const db=database();db.db.exec('DROP TABLE sync_stocks; DROP TABLE sync_accounts');await initializeDB(db);assert.deepEqual((await readState(db,'personal')).stocks,[]);assert.equal(db.db.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE type='table' AND name='auth_sessions'").get().n,1);
+});
+test('login page works before setup; private app and APIs remain protected',async()=>{
+ const settings={ASSETS:{fetch:async req=>new Response('fixture asset '+new URL(req.url).pathname)}};
+ const main=await worker.fetch(request('/'),settings);assert.equal(main.status,302);assert.equal(main.headers.get('Location'),'/login');
+ assert.equal((await worker.fetch(request('/login'),settings)).status,200);assert.equal((await worker.fetch(request('/login.js'),settings)).status,200);
+ assert.equal((await worker.fetch(request('/api/state'),settings)).status,503);
+ assert.deepEqual(await (await worker.fetch(request('/api/setup'),{})).json(),{passwordReady:false,databaseReady:false});
+ assert.equal((await worker.fetch(request('/api/login','POST',{password:'anything'}),{SITE_PASSWORD:'short',DB:database()})).status,503);
+});
+test('login issues a secure HttpOnly session, supports two devices and excludes secrets',async()=>{
+ const settings={...env,DB:database()},one=await signin(settings),two=await signin(settings);
+ assert.notEqual(one,two);assert.equal(await identity(request('/api/state','GET',null,one),settings),'personal');
+ const login=await worker.fetch(request('/api/login','POST',{password:env.SITE_PASSWORD}),settings),cookie=login.headers.get('Set-Cookie');
+ for(const flag of ['HttpOnly','Secure','SameSite=Strict','Path=/','__Host-'])assert.ok(cookie.includes(flag));
+ const info=await (await worker.fetch(request('/api/session','GET',null,one),settings)).json();assert.equal(info.accountId,'personal');assert.equal(info.analysisReady,false);assert.ok(!JSON.stringify(info).includes(env.SITE_PASSWORD));
+ const s=stock(),put=await worker.fetch(request('/api/state','PUT',{revision:0,stocks:[s]},one),settings);assert.equal(put.status,200);
+ assert.deepEqual((await (await worker.fetch(request('/api/state','GET',null,two),settings)).json()).stocks,[s]);
+ assert.equal((await worker.fetch(request('/api/state','PUT',{revision:0,stocks:[]},two),settings)).status,409);
+});
+test('wrong passwords, altered or expired cookies, and headers posing as Access are rejected',async()=>{
+ const settings={...env,DB:database()};assert.equal((await worker.fetch(request('/api/login','POST',{password:'wrong'}),settings)).status,401);
+ const cookie=await signin(settings),[name,value]=cookie.split('='),parts=value.split('.');parts[0]=(parts[0][0]==='a'?'b':'a')+parts[0].slice(1);
+ assert.equal((await worker.fetch(request('/api/session','GET',null,name+'='+parts.join('.')),settings)).status,401);
+ parts[1]='1';assert.equal((await worker.fetch(request('/api/session','GET',null,name+'='+parts.join('.')),settings)).status,401);
+ assert.equal((await worker.fetch(new Request('https://stockfolio.test/api/state',{headers:{'Cf-Access-Authenticated-User-Email':'pretend@example.test'}}),settings)).status,401);
+});
+test('logout revokes only that device and a password change revokes every old session',async()=>{
+ const settings={...env,DB:database()},one=await signin(settings),two=await signin(settings);
+ const logout=await worker.fetch(request('/api/logout','POST',null,one),settings);assert.equal(logout.status,200);assert.ok(logout.headers.get('Set-Cookie').includes('Max-Age=0'));
+ assert.equal((await worker.fetch(request('/api/session','GET',null,one),settings)).status,401);assert.equal((await worker.fetch(request('/api/session','GET',null,two),settings)).status,200);
+ assert.equal((await worker.fetch(request('/api/session','GET',null,two),{...settings,SITE_PASSWORD:'replacement-fixture-password'})).status,401);
+});
+test('login and mutations reject cross origin requests before authentication',async()=>{
+ const settings={...env,DB:database()};for(const path of ['/api/login','/api/logout','/api/state'])assert.equal((await worker.fetch(request(path,'POST',{password:env.SITE_PASSWORD},null,'https://other.test'),settings)).status,403);
+});
+test('repeated password guessing is rate limited and does not grant a session',async()=>{
+ const settings={...env,DB:database()};for(let i=0;i<10;i++)assert.equal((await worker.fetch(request('/api/login','POST',{password:'wrong'}),settings)).status,401);
+ const limited=await worker.fetch(request('/api/login','POST',{password:env.SITE_PASSWORD}),settings);assert.equal(limited.status,429);assert.equal(limited.headers.get('Set-Cookie'),null);assert.equal(limited.headers.get('Retry-After'),'900');
 });

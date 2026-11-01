@@ -1,31 +1,9 @@
 import {ServiceError,researchCompany,validateInput} from './research.mjs';
 export {collectSources,validateInput,validateReport,researchCompany} from './research.mjs';
 const encoder=new TextEncoder();
-const keys=new Map();
+import {identity,login,logout,passwordReady,initializeDB} from './password-auth.mjs';
+export {identity} from './password-auth.mjs';
 function fail(message,status=401){throw new ServiceError(message,status)}
-function decode(value){return Uint8Array.from(atob(value.replace(/-/g,'+').replace(/_/g,'/')),x=>x.charCodeAt(0))}
-export async function identity(request,env,fetcher=fetch){
- if(!env.ACCESS_TEAM_DOMAIN||!env.ACCESS_AUD||!env.OWNER_EMAIL)fail('尚未完成個人登入設定。',503);
- const issuer='https://'+env.ACCESS_TEAM_DOMAIN;
- if(!/^[a-z0-9-]+\.cloudflareaccess\.com$/.test(env.ACCESS_TEAM_DOMAIN))fail('登入網域設定不正確。',503);
- try{
-  const token=request.headers.get('Cf-Access-Jwt-Assertion')||'',parts=token.split('.');if(parts.length!==3)fail('請重新登入。');
-  const header=JSON.parse(new TextDecoder().decode(decode(parts[0]))),claims=JSON.parse(new TextDecoder().decode(decode(parts[1])));
-  if(header.alg!=='RS256'||typeof header.kid!=='string')fail('登入憑證無效。');
-  const now=Date.now()/1000;
-  if(claims.iss!==issuer||![claims.aud].flat().includes(env.ACCESS_AUD)||!Number.isFinite(claims.exp)||claims.exp<=now||(claims.nbf&&claims.nbf>now))fail('登入已過期或憑證無效。');
-  let cached=keys.get(issuer);
-  if(!cached||cached.until<Date.now()||!cached.list.some(k=>k.kid===header.kid)){
-   const res=await fetcher(issuer+'/cdn-cgi/access/certs');if(!res.ok)fail('暫時無法確認登入，請重試。',503);
-   const data=await res.json();cached={until:Date.now()+300000,list:data.keys||[]};keys.set(issuer,cached);
-  }
-  const jwk=cached.list.find(k=>k.kid===header.kid&&k.kty==='RSA');if(!jwk)fail('登入憑證無效。');
-  const key=await crypto.subtle.importKey('jwk',jwk,{name:'RSASSA-PKCS1-v1_5',hash:'SHA-256'},false,['verify']);
-  if(!await crypto.subtle.verify('RSASSA-PKCS1-v1_5',key,decode(parts[2]),encoder.encode(parts[0]+'.'+parts[1])))fail('登入憑證無效。');
-  if(typeof claims.email!=='string'||claims.email.toLowerCase()!==env.OWNER_EMAIL.trim().toLowerCase())fail('此帳號沒有權限。',403);
-  return claims.email.toLowerCase();
- }catch(e){if(e instanceof ServiceError)throw e;fail('登入憑證無效。')}
-}
 export function validateStocks(stocks){
  if(!Array.isArray(stocks)||stocks.length>1000)fail('每份名單最多 1000 檔。',400);
  const seen=new Set();
@@ -58,14 +36,27 @@ export async function writeState(db,owner,body){
  return {revision:body.revision+1,updatedAt:date};
 }
 export default {async fetch(request,env){
- const url=new URL(request.url),reply=(data,status=200)=>Response.json(data,{status,headers:{'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}});
+ const url=new URL(request.url),reply=(data,status=200,headers={})=>Response.json(data,{status,headers:{'Cache-Control':'no-store','X-Content-Type-Options':'nosniff',...headers}});
+ const asset=async path=>{
+  if(!env.ASSETS)fail('網站檔案尚未部署。',503);
+  const target=new URL(path||url.pathname,url);const res=await env.ASSETS.fetch(new Request(target,{method:request.method==='HEAD'?'HEAD':'GET'}));const response=new Response(res.body,res);
+  response.headers.set('Cache-Control','private,no-store');response.headers.set('X-Content-Type-Options','nosniff');response.headers.set('X-Frame-Options','DENY');response.headers.set('Referrer-Policy','same-origin');return response;
+ };
  try{
-  if(url.pathname==='/api/health')return reply({syncReady:!!(env.DB&&env.ACCESS_TEAM_DOMAIN&&env.ACCESS_AUD&&env.OWNER_EMAIL)});
-  const owner=await identity(request,env);
   if(request.method!=='GET'&&request.method!=='HEAD'&&request.headers.get('Origin')!==url.origin)fail('請從網站內操作。',403);
-  if(url.pathname==='/api/session'&&request.method==='GET')return reply({email:owner,syncReady:!!env.DB,analysisReady:!!(env.OPENAI_API_KEY&&env.OPENAI_MODEL)});
+  if(url.pathname==='/api/health'&&request.method==='GET')return reply({syncReady:!!(env.DB&&passwordReady(env))});
+  if(url.pathname==='/api/setup'&&request.method==='GET')return reply({passwordReady:passwordReady(env),databaseReady:!!env.DB});
+  if(url.pathname==='/api/login'&&request.method==='POST')return reply({ok:true},200,{'Set-Cookie':await login(request,env)});
+  if(url.pathname==='/api/logout'&&request.method==='POST')return reply({ok:true},200,{'Set-Cookie':await logout(request,env)});
+  if(['/login','/login.html','/login.js','/style.css'].includes(url.pathname)&&['GET','HEAD'].includes(request.method))return await asset(url.pathname==='/login'?'/login.html':url.pathname);
+  let owner;
+  try{owner=await identity(request,env)}catch(e){
+   if(!url.pathname.startsWith('/api/')&&['GET','HEAD'].includes(request.method)&&e instanceof ServiceError&&[401,503].includes(e.status))return new Response(null,{status:302,headers:{Location:'/login','Cache-Control':'no-store'}});
+   throw e;
+  }
+  if(url.pathname==='/api/session'&&request.method==='GET')return reply({accountId:owner,label:'我的個人資料',syncReady:!!env.DB,analysisReady:!!(env.OPENAI_API_KEY&&env.OPENAI_MODEL)});
   if(url.pathname==='/api/state'){
-   if(!env.DB)fail('雲端資料庫尚未連接。',503);
+   await initializeDB(env.DB);
    if(request.method==='GET')return reply(await readState(env.DB,owner));
    if(request.method==='PUT'){
     if(Number(request.headers.get('Content-Length')||0)>6000000)fail('資料過大。',413);
@@ -82,7 +73,6 @@ export default {async fetch(request,env){
    return reply(await researchCompany(env,validateInput(body)));
   }
   if(url.pathname.startsWith('/api/'))return reply({error:'找不到此服務。'},404);
-  if(!env.ASSETS)fail('網站檔案尚未部署。',503);
-  const asset=await env.ASSETS.fetch(request);const response=new Response(asset.body,asset);response.headers.set('Cache-Control','private,no-store');return response;
- }catch(e){return reply({error:e instanceof ServiceError?e.message:'服務暫時無法完成，請稍後重試。'},e instanceof ServiceError?e.status:503)}
+  return await asset();
+ }catch(e){return reply({error:e instanceof ServiceError?e.message:'服務暫時無法完成，請稍後重試。'},e instanceof ServiceError?e.status:503,e?.status===429?{'Retry-After':'900'}:{})}
 }};
