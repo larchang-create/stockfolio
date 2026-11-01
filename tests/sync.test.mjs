@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {DatabaseSync} from 'node:sqlite';
 import {readFileSync} from 'node:fs';
 import worker,{readState,writeState} from '../backend/worker.mjs';
-import {identity,initializeDB} from '../backend/password-auth.mjs';
+import {identity,initializeDB,passwordState} from '../backend/password-auth.mjs';
 import '../public/sync.js';
 const {merge,Client}=globalThis.StockfolioSync;
 function database(){const db=new DatabaseSync(':memory:');db.exec(readFileSync(new URL('../migrations/0001_sync.sql',import.meta.url),'utf8'));const prepare=sql=>({bind(...args){return {sql,args,async run(){const s=db.prepare(sql);return {results:s.columns().length?s.all(...args):(s.run(...args),[])}}}}});return {prepare,async batch(items){db.exec('BEGIN');try{const results=[];for(const q of items)results.push(await q.run());db.exec('COMMIT');return results}catch(e){db.exec('ROLLBACK');throw e}},db}}
@@ -62,7 +62,7 @@ test('login page works before setup; private app and APIs remain protected',asyn
  const main=await worker.fetch(request('/'),settings);assert.equal(main.status,302);assert.equal(main.headers.get('Location'),'/login');
  assert.equal((await worker.fetch(request('/login'),settings)).status,200);assert.equal((await worker.fetch(request('/login.js'),settings)).status,200);
  assert.equal((await worker.fetch(request('/api/state'),settings)).status,503);
- assert.deepEqual(await (await worker.fetch(request('/api/setup'),{})).json(),{passwordReady:false,databaseReady:false});
+ assert.deepEqual(await (await worker.fetch(request('/api/setup'),{})).json(),{passwordReady:false,passwordState:'missing',databaseReady:false});
  assert.equal((await worker.fetch(request('/api/login','POST',{password:'anything'}),{SITE_PASSWORD:'short',DB:database()})).status,503);
 });
 test('login issues a secure HttpOnly session, supports two devices and excludes secrets',async()=>{
@@ -94,4 +94,12 @@ test('login and mutations reject cross origin requests before authentication',as
 test('repeated password guessing is rate limited and does not grant a session',async()=>{
  const settings={...env,DB:database()};for(let i=0;i<10;i++)assert.equal((await worker.fetch(request('/api/login','POST',{password:'wrong'}),settings)).status,401);
  const limited=await worker.fetch(request('/api/login','POST',{password:env.SITE_PASSWORD}),settings);assert.equal(limited.status,429);assert.equal(limited.headers.get('Set-Cookie'),null);assert.equal(limited.headers.get('Retry-After'),'900');
+});
+
+test('setup distinguishes missing, short and valid credentials without exposing values or exact lengths',async()=>{
+ for(const [value,state] of [[undefined,'missing'],['','missing'],['abc123','too_short'],['x'.repeat(257),'too_long'],[{},'invalid_type'],['x'.repeat(16),'ready']]){
+  assert.equal(passwordState({SITE_PASSWORD:value}),state);
+  const res=await worker.fetch(request('/api/setup'),{SITE_PASSWORD:value});const info=await res.json();
+  assert.deepEqual(Object.keys(info).sort(),['databaseReady','passwordReady','passwordState']);assert.equal(info.passwordState,state);assert.equal(info.passwordReady,state==='ready');
+ }
 });

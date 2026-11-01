@@ -23,7 +23,7 @@ with tempfile.TemporaryDirectory(prefix='stockfolio-smoke-') as tmp:
     if proc.poll() is not None:raise RuntimeError('Worker stopped')
     time.sleep(.4)
    else:raise RuntimeError('Worker startup timed out')
-   assert json.loads(text)=={'passwordReady':True,'databaseReady':True},text
+   assert json.loads(text)=={'passwordReady':True,'passwordState':'ready','databaseReady':True},text
    status,h,text=call('/api/login','POST',{'password':'fixture-only-password-long-enough'});assert status==200,text;cookie=h['Set-Cookie'].split(';')[0]
    assert call('/api/state')[0]==401
    status,h,text=call('/api/state',cookie=cookie);assert status==200,text;assert json.loads(text)['stocks']==[]

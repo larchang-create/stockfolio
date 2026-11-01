@@ -19,3 +19,5 @@
 使用者偏好：繁體中文，簡單介面；左側台股、美股、總經概況、研究院。新增只要市場與代號，不要加大量教學橫幅。先完成同步，再做抓取分析，不要新增股票就自動付費分析。
 
 研究框架：公司怎麼賺錢、成長、品質、投入、價格假設、論點失效。原始文章 https://unclestocknotes.substack.com/p/32e 及 /p/22b。backend/research.mjs 保留 AI 搜尋及六區塊，analysis 與手動 research 分開存；接手應重新讀文章再聲稱符合原文。
+
+目前排查：使用者已設定 Secret，但正式 /api/setup 回傳 passwordReady:false,databaseReady:true。原因尚未確定，不能直接宣稱是 Build 設錯或字數不足。新增 passwordState（missing/too_short/too_long/invalid_type/ready）及前端明確提示，待正式部署後確認原因。不要索取密碼。若 missing，確認執行用 Secret 與 Production 部署，而不是再讓使用者改密碼。

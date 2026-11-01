@@ -45,3 +45,9 @@ wrangler.jsonc 使用 D1 自動資源配置：`binding: DB`、`database_name: st
 ## 後續研究服務
 
 先完成登入與同步，再決定資料與 AI 供應商。此階段不需要 AI 金鑰或付費模型。保留的 backend/research.mjs 使用 OpenAI Responses API 搜尋公開資料並整理六個研究問題；尚無新的真實分析結果。不要在新增股票時自動發起付費請求。
+
+## 設定看似成功但仍無法登入
+
+先查看 /api/setup，只回傳就緒旗標與 passwordState，不含密碼或實際長度。missing 表示正式 Worker 沒收到該 Secret（或空值）；too_short 表示有收到但少於 16 字元；too_long 表示超過 256 字元；invalid_type 表示非文字；ready 表示可用。登入頁會對應顯示原因，可以按「重新檢查設定」更新狀態，不需要反覆猜或重設密碼。
+
+Build 區塊中的 Variables and Secrets 只給建置程序使用，不會自動進入網站執行的 env。確認是在 Worker 本身 Settings 的執行設定新增 Secret，並套用到 production 目前部署。部署 Ready 不等同該網站已收到密碼。不要將 Secret 複製到公開 config。

@@ -1,7 +1,7 @@
 import {ServiceError,researchCompany,validateInput} from './research.mjs';
 export {collectSources,validateInput,validateReport,researchCompany} from './research.mjs';
 const encoder=new TextEncoder();
-import {identity,login,logout,passwordReady,initializeDB} from './password-auth.mjs';
+import {identity,login,logout,passwordReady,passwordState,initializeDB} from './password-auth.mjs';
 export {identity} from './password-auth.mjs';
 function fail(message,status=401){throw new ServiceError(message,status)}
 export function validateStocks(stocks){
@@ -45,7 +45,7 @@ export default {async fetch(request,env){
  try{
   if(request.method!=='GET'&&request.method!=='HEAD'&&request.headers.get('Origin')!==url.origin)fail('請從網站內操作。',403);
   if(url.pathname==='/api/health'&&request.method==='GET')return reply({syncReady:!!(env.DB&&passwordReady(env))});
-  if(url.pathname==='/api/setup'&&request.method==='GET')return reply({passwordReady:passwordReady(env),databaseReady:!!env.DB});
+  if(url.pathname==='/api/setup'&&request.method==='GET')return reply({passwordReady:passwordReady(env),passwordState:passwordState(env),databaseReady:!!env.DB});
   if(url.pathname==='/api/login'&&request.method==='POST')return reply({ok:true},200,{'Set-Cookie':await login(request,env)});
   if(url.pathname==='/api/logout'&&request.method==='POST')return reply({ok:true},200,{'Set-Cookie':await logout(request,env)});
   if(['/login','/login.html','/login.js','/style.css'].includes(url.pathname)&&['GET','HEAD'].includes(request.method))return await asset(url.pathname==='/login'?'/login.html':url.pathname);

@@ -14,7 +14,14 @@ export async function initializeDB(db){
  if(!initialized.has(db)){const pending=db.batch(schema.map(sql=>db.prepare(sql).bind()));initialized.set(db,pending);pending.catch(()=>initialized.delete(db))}
  await initialized.get(db);
 }
-export function passwordReady(env){return typeof env.SITE_PASSWORD==='string'&&[...env.SITE_PASSWORD].length>=16&&env.SITE_PASSWORD.length<=256}
+export function passwordState(env){
+ if(env.SITE_PASSWORD===undefined||env.SITE_PASSWORD===null||env.SITE_PASSWORD==='')return 'missing';
+ if(typeof env.SITE_PASSWORD!=='string')return 'invalid_type';
+ if([...env.SITE_PASSWORD].length<16)return 'too_short';
+ if(env.SITE_PASSWORD.length>256)return 'too_long';
+ return 'ready';
+}
+export function passwordReady(env){return passwordState(env)==='ready'}
 function configured(env){if(!passwordReady(env))throw new ServiceError('請先在網站設定新增至少 16 字元的 SITE_PASSWORD 密碼。',503)}
 const base64=bytes=>btoa(String.fromCharCode(...new Uint8Array(bytes))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
 const unbase64=s=>Uint8Array.from(atob(s.replace(/-/g,'+').replace(/_/g,'/')),c=>c.charCodeAt(0));
