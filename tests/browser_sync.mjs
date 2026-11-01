@@ -1,0 +1,33 @@
+// Real browser contexts -> actual Worker -> local D1. No production data or credentials.
+import {spawn} from 'node:child_process';
+import {mkdtemp,rm} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
+import {join,dirname} from 'node:path';
+import {fileURLToPath} from 'node:url';
+import https from 'node:https';
+import assert from 'node:assert/strict';
+const project=dirname(dirname(fileURLToPath(import.meta.url))),origin='https://stockfolio.test:8792',password='fixture-only-password-long-enough';
+const tmp=await mkdtemp(join(tmpdir(),'stockfolio-browser-'));
+let worker,browser,logs='',sequence=0,buffer='';const pending=new Map();
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+function cdp(method,params={},sessionId){return new Promise((resolve,reject)=>{const id=++sequence;const timer=setTimeout(()=>{pending.delete(id);reject(Error('CDP timeout '+method))},15000);pending.set(id,{resolve:r=>{clearTimeout(timer);resolve(r)},reject:e=>{clearTimeout(timer);reject(e)}});browser.stdio[3].write(JSON.stringify({id,method,params,...(sessionId?{sessionId}:{})})+'\0')})}
+async function evaluate(session,expression){const result=await cdp('Runtime.evaluate',{expression,awaitPromise:true,returnByValue:true},session);if(result.exceptionDetails)throw Error(result.exceptionDetails.exception?.description||result.exceptionDetails.text);return result.result?.value}
+async function wait(session,expression){for(let i=0;i<80;i++){try{if(await evaluate(session,expression))return}catch{}await sleep(100)}throw Error('Page condition timed out: '+expression+'; '+await evaluate(session,'document.body.innerText.slice(0,1800)'))}
+function probe(){return new Promise((resolve,reject)=>{const req=https.get('https://127.0.0.1:8792/api/setup',{rejectUnauthorized:false},res=>{let data='';res.on('data',x=>data+=x);res.on('end',()=>{try{resolve(JSON.parse(data))}catch{reject(Error('not ready'))}})});req.on('error',reject);req.setTimeout(1000,()=>req.destroy())})}
+async function device(){const context=await cdp('Target.createBrowserContext');const target=await cdp('Target.createTarget',{url:origin+'/login',browserContextId:context.browserContextId});const {sessionId}=await cdp('Target.attachToTarget',{targetId:target.targetId,flatten:true});await wait(sessionId,"document.querySelector('#login-form') && !document.querySelector('#login-form').hidden");await evaluate(sessionId,`document.querySelector('#login-password').value=${JSON.stringify(password)};document.querySelector('#login-form').requestSubmit();true`);await wait(sessionId,"document.querySelector('#sync-status')?.textContent==='已同步'");return sessionId}
+try{
+ worker=spawn('npx',['--yes','wrangler@4','dev','--local','--ip','127.0.0.1','--port','8792','--local-protocol','https','--persist-to',join(tmp,'state'),'--var','SITE_PASSWORD:'+password],{cwd:project,env:{...process.env,WRANGLER_SEND_METRICS:'false'},stdio:['ignore','pipe','pipe'],detached:true});for(const stream of [worker.stdout,worker.stderr])stream.on('data',d=>logs+=d);
+ let ready=false;for(let i=0;i<60;i++){try{if((await probe()).passwordReady){ready=true;break}}catch{}await sleep(300)}assert.ok(ready,'Worker started');
+ browser=spawn('google-chrome',['--headless','--no-sandbox','--disable-gpu','--disable-dev-shm-usage','--no-proxy-server','--ignore-certificate-errors','--host-resolver-rules=MAP stockfolio.test 127.0.0.1','--user-data-dir='+join(tmp,'chrome'),'--remote-debugging-pipe'],{stdio:['ignore','ignore','pipe','pipe','pipe']});
+ browser.stdio[4].on('data',chunk=>{buffer+=chunk;let end;while((end=buffer.indexOf('\0'))!==-1){const message=buffer.slice(0,end);buffer=buffer.slice(end+1);if(!message)continue;const data=JSON.parse(message),item=pending.get(data.id);if(item){pending.delete(data.id);if(data.error)item.reject(Error(data.error.message));else item.resolve(data.result)}}});
+ const a=await device(),b=await device();
+ await evaluate(a,"document.querySelector('#add').click();document.querySelector('#quick-market').value='美股';document.querySelector('#quick-symbol').value='MSFT';document.querySelector('#quick-form').requestSubmit();true");
+ await wait(a,"document.querySelector('#sync-status')?.textContent==='已同步' && document.querySelector('#rows').textContent.includes('MSFT')");
+ await evaluate(b,"cloudClient.sync()");await evaluate(b,"document.querySelector('[data-view=us]').click();true");
+ await wait(b,"document.querySelector('#rows').textContent.includes('MSFT')");console.log('PASS two isolated browser contexts share newly added MSFT');
+ await evaluate(b,"document.querySelector('[data-expand]').click();document.querySelector('[data-edit]').click();document.querySelector('#stock-form').elements.notes.value='second device fixture note';document.querySelector('#stock-form').requestSubmit();true");
+ await wait(b,"document.querySelector('#sync-status').textContent==='已同步'");await evaluate(a,'cloudClient.sync()');assert.equal(await evaluate(a,"stocks.find(s=>s.symbol==='MSFT').notes"),'second device fixture note');console.log('PASS second-device notes reach the first browser');
+ await cdp('Page.reload',{},a);await wait(a,"document.querySelector('#sync-status')?.textContent==='已同步'");assert.equal(await evaluate(a,"stocks.find(s=>s.symbol==='MSFT').notes"),'second device fixture note');console.log('PASS login and synchronized notes survive a real reload');
+}catch(e){console.error(e.message);console.error(logs.slice(-3000));process.exitCode=1}finally{
+ for(const item of pending.values())item.reject(Error('Test finished'));pending.clear();browser?.kill();if(worker)try{process.kill(-worker.pid,'SIGTERM')}catch{}await sleep(200);await rm(tmp,{recursive:true,force:true});
+}

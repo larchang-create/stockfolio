@@ -1,5 +1,6 @@
-import {ServiceError,researchCompany,validateInput} from './research.mjs';
+import {ServiceError,validateInput} from './research.mjs';
 export {collectSources,validateInput,validateReport,researchCompany} from './research.mjs';
+import {researchConfig,checkResearch,runCompanyResearch} from './research-service.mjs';
 const encoder=new TextEncoder();
 import {identity,login,logout,passwordReady,passwordState,initializeDB} from './password-auth.mjs';
 export {identity} from './password-auth.mjs';
@@ -54,7 +55,7 @@ export default {async fetch(request,env){
    if(!url.pathname.startsWith('/api/')&&['GET','HEAD'].includes(request.method)&&e instanceof ServiceError&&[401,503].includes(e.status))return new Response(null,{status:302,headers:{Location:'/login','Cache-Control':'no-store'}});
    throw e;
   }
-  if(url.pathname==='/api/session'&&request.method==='GET')return reply({accountId:owner,label:'我的個人資料',syncReady:!!env.DB,analysisReady:!!(env.OPENAI_API_KEY&&env.OPENAI_MODEL)});
+  if(url.pathname==='/api/session'&&request.method==='GET')return reply({accountId:owner,label:'我的個人資料',syncReady:!!env.DB,analysisReady:researchConfig(env).configured,researchModel:researchConfig(env).model});
   if(url.pathname==='/api/state'){
    await initializeDB(env.DB);
    if(request.method==='GET')return reply(await readState(env.DB,owner));
@@ -66,11 +67,12 @@ export default {async fetch(request,env){
    }
    return reply({error:'不支援此操作。'},405);
   }
+  if(url.pathname==='/api/research/status'&&request.method==='GET')return reply(researchConfig(env));
+  if(url.pathname==='/api/research/check'&&request.method==='POST')return reply(await checkResearch(env));
   if(url.pathname==='/api/research'&&request.method==='POST'){
-   if(!env.OPENAI_API_KEY||!env.OPENAI_MODEL)fail('資料抓取與分析尚未啟用；名單與筆記同步可正常使用。',503);
    const text=await request.text();if(text.length>2048)fail('請求過大。',413);
    let body;try{body=JSON.parse(text)}catch{fail('請求格式不正確。',400)}
-   return reply(await researchCompany(env,validateInput(body)));
+   return reply(await runCompanyResearch(env,owner,validateInput(body)));
   }
   if(url.pathname.startsWith('/api/'))return reply({error:'找不到此服務。'},404);
   return await asset();

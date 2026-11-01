@@ -3,6 +3,8 @@ const enc=new TextEncoder(),COOKIE='__Host-stockfolio_session',AGE=30*24*60*60;
 const schema=[
  "CREATE TABLE IF NOT EXISTS sync_accounts(owner_id TEXT PRIMARY KEY,revision INTEGER NOT NULL DEFAULT 0,mutation_id TEXT NOT NULL DEFAULT '',updated_at TEXT)",
  'CREATE TABLE IF NOT EXISTS sync_stocks(owner_id TEXT NOT NULL,stock_key TEXT NOT NULL,data_json TEXT NOT NULL,PRIMARY KEY(owner_id,stock_key),FOREIGN KEY(owner_id) REFERENCES sync_accounts(owner_id))',
+ 'CREATE TABLE IF NOT EXISTS research_reports(owner_id TEXT NOT NULL,stock_key TEXT NOT NULL,model TEXT NOT NULL,report_json TEXT NOT NULL,generated_at TEXT NOT NULL,PRIMARY KEY(owner_id,stock_key,model))',
+ 'CREATE TABLE IF NOT EXISTS research_lock(owner_id TEXT PRIMARY KEY,job_id TEXT NOT NULL,lease_until INTEGER NOT NULL)',
  'CREATE TABLE IF NOT EXISTS auth_sessions(token_hash TEXT PRIMARY KEY,expires_at INTEGER NOT NULL)',
  'CREATE TABLE IF NOT EXISTS auth_attempts(bucket TEXT PRIMARY KEY,attempts INTEGER NOT NULL,expires_at INTEGER NOT NULL)',
  'CREATE INDEX IF NOT EXISTS auth_attempts_expiry ON auth_attempts(expires_at)',

@@ -26,3 +26,10 @@ test('database verification failures still revoke the test session',async()=>{
  let loggedOut=false;
  await assert.rejects(verifySite({password,fetcher:async url=>{switch(new URL(url).pathname){case '/api/setup':return Response.json({passwordReady:true,databaseReady:true});case '/api/login':return Response.json({ok:true},{headers:{'Set-Cookie':'__Host-stockfolio_session=fixture; Secure'}});case '/api/state':return Response.json({error:'fixture db error'},{status:503});case '/api/logout':loggedOut=true;return Response.json({ok:true})}}}));assert.equal(loggedOut,true);
 });
+test('optional AI key uses the same protected deployment path and triggers connection verification',async()=>{
+ const key='fixture-openai-key';let verified=false,logs=[];
+ await deploy({env:{SITE_PASSWORD:password,OPENAI_API_KEY:key},log:x=>logs.push(x),run:async args=>{assert.deepEqual(JSON.parse(await readFile(args[2],'utf8')),{SITE_PASSWORD:password,OPENAI_API_KEY:key})},verify:async args=>{assert.equal(args.verifyResearch,true);verified=true}});assert.equal(verified,true);assert.ok(!logs.join('\n').includes(key));
+});
+test('AI-enabled deployment checks the provider connection without invoking research',async()=>{
+ const calls=[];await verifySite({password,verifyResearch:true,fetcher:async url=>{const path=new URL(url).pathname;calls.push(path);if(path==='/api/setup')return Response.json({passwordReady:true,databaseReady:true});if(path==='/api/login')return Response.json({ok:true},{headers:{'Set-Cookie':'__Host-stockfolio_session=fixture; Secure'}});if(path==='/api/state')return Response.json({revision:0,stocks:[]});if(path==='/api/research/check')return Response.json({configured:true,connected:true});if(path==='/api/logout')return Response.json({ok:true});assert.fail('unexpected request')}});assert.ok(calls.includes('/api/research/check'));assert.ok(!calls.includes('/api/research'));
+});

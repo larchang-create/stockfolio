@@ -1,3 +1,7 @@
+# 啟用 AI 研究
+
+登入與名單同步已由使用者設定完成，目前進入公開資料搜尋與研究服務設定。請先讀 [AI-SETUP.md](AI-SETUP.md)：只需在既有 Builds 新增 OPENAI_API_KEY Secret，部署指令維持 npm run deploy。
+
 # 修正部署密碼未進入 Runtime：使用統一部署指令
 
 目前正式網站已確認 databaseReady:true、passwordState:missing。先前使用者把密碼設在 Builds 的 Secret，而單獨 `npx wrangler deploy` 沒有將該值傳給 Runtime。不要再引導使用者反覆重設或找 Runtime 區塊。

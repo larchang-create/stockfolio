@@ -1,3 +1,15 @@
+# 最新階段：使用者已要求啟用公開資料抓取與研究分析
+
+先前誤把研究頁「取得資料並分析」未啟用解讀為裝置同步問題。使用者貼 AMZN 圖確認是研究按鈕，再明確說「那來設定吧」。不要再排查或重設網站密碼，沿用現有 npm run deploy 與 Builds Secret。
+
+已實作：Build 中新增 OPENAI_API_KEY Secret 即可，部署程式 whitelist 安全帶入 Runtime；預設 gpt-5.4-mini，官方目前支援 Responses+web_search+structured outputs。部署後登入檢查 /api/research/check 只取模型資訊，不產生付費分析，也不代表有足夠額度。六問題真實研究由使用者在網站手動啟動，首次以 AMZN 驗收。
+
+backend/research-service.mjs 管理 6 小時 D1 快取、單帳號執行鎖及分析結果原子存入股票 analysis、更新同步 revision，保留 notes/research/company name（原 name 等於 symbol 才補公司名）。快取表和鎖於 initializeDB 自動建立。呼叫失敗不覆寫。研究畫面在沒 API 金鑰時打開專屬設定，不再錯說帳號未同步。
+
+已重新讀原始兩篇 Substack，研究提示涵蓋基本面／市場預期／價格、產業與景氣、現金品質、投入、估值情境與失效。六題是使用者確認的整理框架，不能說逐字照搬文章完整系統（部位管理、回測等尚未實作）。沒有真實 API 金鑰；尚未執行正式付費分析，不能宣稱真實數據已通過驗證。詳細操作見 AI-SETUP.md。不要索取金鑰貼到聊天。
+
+另新增 tests/browser_sync.mjs：兩個獨立 Chrome BrowserContext 經真正 Cloudflare 本機 Worker+D1 登入、新增 MSFT、另一裝置修改筆記、重新整理均通過；不是正式手機實機驗收。
+
 # 最新修正：Build Secret 隨部署自動傳入 Runtime
 
 使用者已非常不耐煩，正式 /api/setup 仍 passwordState:missing，但 databaseReady:true；不要繼續猜密碼長度或叫他找 Runtime。已新增 scripts/deploy.mjs，package.json 的 npm run deploy 讀 Build 的 SITE_PASSWORD，以 wrangler deploy --secrets-file 一併送 Runtime 加密 Secret，部署後驗證正式登入及 DB 讀取，再登出。Tests/deploy.test.mjs 六項測試及真 Wrangler dry-run 通過。
