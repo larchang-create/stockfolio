@@ -24,9 +24,11 @@ python3 -m http.server 8080 --directory public
 
 上傳 `public` 目錄內的所有檔案到個人靜態網站代管服務，不需要建置或伺服器。`index.html` 應位於發布根目錄。網站執行不需要這台 Omni。
 
-目前沒有已發布的公開網址：此工作區 Sites 未啟用，也尚未連接個人代管帳號。不要把本機連結視為公開網址。
+公開版型預覽：https://larchang-create.github.io/stockfolio/
 
-若透過 GitHub Pages：使用個人帳號建立儲存庫、上傳 public 內的檔案，再於 Pages 選擇從 main 分支根目錄發布。依個人帳號方案確認儲存庫的公開需求。
+網站透過個人 GitHub 儲存庫 larchang-create/stockfolio 的 GitHub Actions 發布至 GitHub Pages。發布目錄為 public。這是版型預覽，仍為手動資料模式，尚未實作後續討論的完整研究流程。
+
+本專案的 Pages Source 設定為 GitHub Actions；.github/workflows/pages.yml 會發布 public 目錄。推送至 main 後會自動部署。
 
 網站檔案可以公開，但訪客各自只會看到自己瀏覽器的本機資料。此版本沒有登入或雲端資料庫；不要將個人備份上傳到公開儲存庫。
 
