@@ -1,0 +1,10 @@
+{
+  "name": "stockfolio",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/backend.test.mjs",
+    "deploy": "npx wrangler deploy"
+  },
+  "devDependencies": {"wrangler": "^4.0.0"}
+}
