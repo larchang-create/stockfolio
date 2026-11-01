@@ -1,3 +1,23 @@
+# 修正部署密碼未進入 Runtime：使用統一部署指令
+
+目前正式網站已確認 databaseReady:true、passwordState:missing。先前使用者把密碼設在 Builds 的 Secret，而單獨 `npx wrangler deploy` 沒有將該值傳給 Runtime。不要再引導使用者反覆重設或找 Runtime 區塊。
+
+在 **stockfolio → Settings → Builds**：
+
+1. 保留既有 Variables and secrets 中的 Secret `SITE_PASSWORD`（16 至 256 字元，不貼到聊天）。
+2. 將 **Deploy command** 改成 **`npm run deploy`**。
+3. 儲存並重新部署一次。
+
+package.json 的 deploy 現在執行 scripts/deploy.mjs：使用 Builds 的密碼產生權限 0600 的暫存秘密檔，以官方 `wrangler deploy --secrets-file` 同時部署程式及加密 Secret；結束或失敗立即刪除暫存檔，不放入 repo/public，不印出內容。需要 Wrangler4.156+，已設定 dependency。
+
+部署完成後，程式還會查正式 /api/setup、用該密碼登入、讀取名單確認 DB 可用、登出測試工作階段。測試不改動股票，不印出個人資料。失敗回傳非零，不再把單純 upload 成功當成登入可用。若 Build 沒有密碼或長度錯誤，在部署前直接停止，避免猜測。
+
+本機單元及打包測試已通過；真正正式登入驗證需要使用者改好 Deploy command 後於 Cloudflare 執行。代理未取得雲端帳號操作權限，不能宣稱已替使用者改好指令或驗證正式登入。
+
+官方依據：https://developers.cloudflare.com/workers/configuration/secrets/#upload-secrets-alongside-code
+
+---
+
 # 個人網站設定：密碼登入
 
 使用者已取消 Cloudflare Zero Trust／Access，不要再要求綁付款方式、建立 Access 應用、信箱驗證或 AUD。沿用個人 Cloudflare Workers 與 D1 的免費方案；正式使用網址：

@@ -43,3 +43,5 @@ JSON 備份：`{schemaVersion:1,exportedAt,stocks:[]}`。匯入 JSON 會確認�
 最多 1000 檔／帳號，單檔 JSON 750 KB，整次同步 6 MB；超過會回報錯誤並保留本機待同步資料。
 
 資料抓取及 AI 分析的程式保留於 `backend/research.mjs`，此階段不自動啟用，也不會在新增股票時呼叫付費模型。尚無已驗證的真實報告、即時行情、背景排程或通知。範例為虛構資料。
+
+部署注意：Cloudflare Builds 的 Deploy command 請用 `npm run deploy`。新版部署程式會將 Build 中 SITE_PASSWORD Secret 隨程式送入 Runtime，並在結束前驗證正式登入與 DB 名單讀取。單獨 npx wrangler deploy 不會執行此修復與驗證。詳見 SETUP.md 頂部。

@@ -1,3 +1,9 @@
+# 最新修正：Build Secret 隨部署自動傳入 Runtime
+
+使用者已非常不耐煩，正式 /api/setup 仍 passwordState:missing，但 databaseReady:true；不要繼續猜密碼長度或叫他找 Runtime。已新增 scripts/deploy.mjs，package.json 的 npm run deploy 讀 Build 的 SITE_PASSWORD，以 wrangler deploy --secrets-file 一併送 Runtime 加密 Secret，部署後驗證正式登入及 DB 讀取，再登出。Tests/deploy.test.mjs 六項測試及真 Wrangler dry-run 通過。
+
+**必要尚待使用者動作：stockfolio → Settings → Builds → Deploy command 從 npx wrangler deploy 改成 npm run deploy，保留該 Build 區塊既有 SITE_PASSWORD Secret，儲存並重新部署。** 代理沒 Cloudflare 權限，不能替他改該欄位，也不能聲稱正式驗證已過。後續看該次建置的驗證成功訊息或明確失敗原因。若使用者不願再設，應換方法，不能再重複同樣 Runtime 指示。
+
 # 接手重點：已改成網站密碼登入
 
 使用者認為 Zero Trust Free 還要付款方式太麻煩，明確取消此方式。不要再引導設定 Zero Trust／Access、AUD、個人信箱白名單或綁卡。沿用已建立的個人 Cloudflare Worker，使用單一網站密碼及 D1，電腦手機共用一份資料。

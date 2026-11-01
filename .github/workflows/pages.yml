@@ -23,6 +23,7 @@ jobs:
           node-version: 22
       - name: Validate source and backend
         run: |
+          node --check scripts/deploy.mjs
           node --check public/app.js
           node --check backend/worker.mjs
           node --test tests/*.test.mjs
