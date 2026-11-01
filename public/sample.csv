@@ -1,0 +1,3 @@
+market,symbol,name,price,pe,yield,asOf,nextReview,frequency,notes
+台股,DEMO-TW,示範台灣公司,100,15,3,,,7,虛構範例不是實際行情
+美股,DEMO-US,Demo US Company,80,22,1.5,,,7,虛構範例不是實際行情
