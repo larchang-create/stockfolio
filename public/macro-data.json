@@ -1,0 +1,331 @@
+{
+  "schemaVersion": 1,
+  "checkedAt": "2026-11-08",
+  "sources": [
+    {
+      "id": "fed",
+      "title": "聯準會｜2026-10-28 FOMC 聲明",
+      "url": "https://www.federalreserve.gov/newsevents/pressreleases/monetary20261028a.htm"
+    },
+    {
+      "id": "cpi",
+      "title": "BLS｜2026 年 9 月 CPI（10/14 發布）",
+      "url": "https://www.bls.gov/news.release/archives/cpi_10142026.htm"
+    },
+    {
+      "id": "jobs",
+      "title": "BLS｜2026 年 10 月就業報告（11/6 發布）",
+      "url": "https://www.bls.gov/news.release/archives/empsit_11062026.htm"
+    },
+    {
+      "id": "exports",
+      "title": "財政部｜115 年 9 月進出口初步統計",
+      "url": "https://www.mof.gov.tw/singlehtml/384fb3077bb349ea973e7fc6f13b6974?cntId=856cf6c5ea4646208d3b8345b3bb46e2"
+    },
+    {
+      "id": "fx",
+      "title": "中央銀行｜新臺幣／美元銀行間收盤匯率",
+      "url": "https://www.cbc.gov.tw/tw/lp-645-1-1-60.html"
+    },
+    {
+      "id": "china",
+      "title": "中國商務部、科技部｜2026 年第 48 號公告",
+      "url": "https://www.mofcom.gov.cn/zcfb/dwmygl/art/2026/art_61446ab4beee4f63973d4d0ab3097648.html"
+    },
+    {
+      "id": "eu",
+      "title": "歐盟理事會｜2026-10-12 對俄制裁名單公告",
+      "url": "https://www.consilium.europa.eu/en/press/press-releases/2026/10/12/russia-s-war-of-aggression-against-ukraine-eu-agrees-largest-ever-package-of-listings-targeting-almost-1600-individuals-and-entities-in-russia-s-military-industrial-complex/"
+    }
+  ],
+  "indicators": [
+    {
+      "id": "policy-rate",
+      "title": "美國政策利率",
+      "value": "3.75–4.00",
+      "unit": "%｜目標區間",
+      "period": "2026-10-28 決策",
+      "periodEnd": "2026-10-28",
+      "publishedAt": "2026-10-28",
+      "comparison": "本次維持不變",
+      "interpretation": "維持利率不等於未來一定降息。研究成長股估值、企業再融資與房地產時，仍須檢查利率敏感度。",
+      "sourceIds": [
+        "fed"
+      ],
+      "history": []
+    },
+    {
+      "id": "headline-cpi",
+      "title": "美國整體 CPI",
+      "value": "3.7",
+      "unit": "%｜年增率・未季調",
+      "period": "2026-09",
+      "periodEnd": "2026-09-30",
+      "publishedAt": "2026-10-14",
+      "comparison": "前月 3.4% → 本月 3.7%（+0.3 個百分點）",
+      "interpretation": "整體物價升溫可能影響消費實質購買力與成本；仍要拆看能源與核心項目，不能只憑單月判定政策方向。",
+      "sourceIds": [
+        "cpi"
+      ],
+      "history": [
+        {
+          "date": "2026-08-31",
+          "value": 3.4
+        },
+        {
+          "date": "2026-09-30",
+          "value": 3.7
+        }
+      ]
+    },
+    {
+      "id": "core-cpi",
+      "title": "美國核心 CPI",
+      "value": "2.6",
+      "unit": "%｜年增率・未季調",
+      "period": "2026-09",
+      "periodEnd": "2026-09-30",
+      "publishedAt": "2026-10-14",
+      "comparison": "剔除食品與能源；當月季調月增 0.3%",
+      "interpretation": "整體與核心物價可能不同步。不要把年增率 2.6% 與月增率 0.3% 當成相同口徑比較。",
+      "sourceIds": [
+        "cpi"
+      ],
+      "history": []
+    },
+    {
+      "id": "unemployment",
+      "title": "美國失業率",
+      "value": "4.1",
+      "unit": "%｜季節調整後",
+      "period": "2026-10",
+      "periodEnd": "2026-10-31",
+      "publishedAt": "2026-11-06",
+      "comparison": "前月 4.2% → 本月 4.1%（−0.1 個百分點）",
+      "interpretation": "就業是觀察消費需求的線索；失業率小幅下降不能直接推出所有零售公司的需求改善，還須看收入、工時與公司實際銷售。",
+      "sourceIds": [
+        "jobs"
+      ],
+      "history": [
+        {
+          "date": "2026-06-30",
+          "value": 4.2
+        },
+        {
+          "date": "2026-07-31",
+          "value": 4.1
+        },
+        {
+          "date": "2026-08-31",
+          "value": 4.1
+        },
+        {
+          "date": "2026-09-30",
+          "value": 4.2
+        },
+        {
+          "date": "2026-10-31",
+          "value": 4.1
+        }
+      ]
+    },
+    {
+      "id": "taiwan-exports",
+      "title": "台灣出口",
+      "value": "60.9",
+      "unit": "%｜美元計價年增率",
+      "period": "2026-09・初步統計",
+      "periodEnd": "2026-09-30",
+      "publishedAt": "2026-10-08",
+      "comparison": "出口金額 872.2 億美元；不是月增率",
+      "interpretation": "總出口強勁不代表每個產業都受惠。研究個股仍應核對產品組合、客戶與公司營收，並注意基期效應及幣別。",
+      "sourceIds": [
+        "exports"
+      ],
+      "history": []
+    },
+    {
+      "id": "usd-twd",
+      "title": "美元兌新台幣",
+      "value": "32.768",
+      "unit": "TWD／USD｜銀行間收盤",
+      "period": "2026-11-06",
+      "periodEnd": "2026-11-06",
+      "publishedAt": "2026-11-06",
+      "comparison": "前交易日 32.876 → 32.768（新台幣升值）",
+      "interpretation": "數字下降代表新台幣相對美元升值；美股換回台幣的報酬、出口收入與進口成本可能受影響，實際效果須考慮避險及成本幣別。",
+      "sourceIds": [
+        "fx"
+      ],
+      "history": [
+        {
+          "date": "2026-10-30",
+          "value": 32.478
+        },
+        {
+          "date": "2026-11-02",
+          "value": 32.592
+        },
+        {
+          "date": "2026-11-03",
+          "value": 32.76
+        },
+        {
+          "date": "2026-11-04",
+          "value": 32.821
+        },
+        {
+          "date": "2026-11-05",
+          "value": 32.876
+        },
+        {
+          "date": "2026-11-06",
+          "value": 32.768
+        }
+      ]
+    }
+  ],
+  "events": [
+    {
+      "id": "fed-october",
+      "title": "聯準會維持利率，後續仍看通膨資訊",
+      "topic": "政策利率",
+      "stage": "announced",
+      "status": "已公布決策",
+      "date": "2026-10-28",
+      "fact": "10/28 FOMC 聲明維持聯邦基金利率目標區間 3.75%–4.00%，並表示通膨仍偏高。",
+      "impact": "利率預期 → 折現率與企業融資成本 → 成長股、金融及房地產估值。這是研究路徑，方向與幅度需另行驗證。",
+      "counter": "維持利率不是承諾降息，也不能單憑聲明判定股市必漲或必跌；本次尚未整理可靠的市場利率預期。",
+      "next": "觀察後續通膨、就業與下一份 FOMC 正式聲明；公司端核對借款到期、利息費用與估值假設。",
+      "allStocks": true,
+      "targets": [],
+      "sourceIds": [
+        "fed"
+      ]
+    },
+    {
+      "id": "china-technology",
+      "title": "中國提出 AI 等技術出口目錄修訂",
+      "topic": "科技管制",
+      "stage": "consultation",
+      "status": "徵詢提案＋臨時登記（依公告）",
+      "date": "2026-10-16",
+      "fact": "10/16 商務部、科技部公告就增列部分 AI、生物醫藥及光伏技術徵詢意見；同時對附件所列技術啟用出口前臨時登記。",
+      "impact": "跨境技術授權或移轉條件 → 合作方式、交付時程與合規成本 → AI、雲端與相關供應鏈的研究假設。",
+      "counter": "目錄修訂仍屬提案，臨時登記是另一項已公告措施；不能把它統稱為所有 AI 產品禁止出口。下列公司僅作研究關聯，尚未確認實際曝險。",
+      "next": "確認正式修訂、實施日期與附件適用技術；再查公司法說及正式申報中的實際影響。本次未確認公告後是否已有進一步修訂。",
+      "allStocks": false,
+      "targets": [
+        {
+          "market": "美股",
+          "symbol": "NVDA"
+        },
+        {
+          "market": "美股",
+          "symbol": "AMD"
+        },
+        {
+          "market": "美股",
+          "symbol": "MSFT"
+        },
+        {
+          "market": "美股",
+          "symbol": "AMZN"
+        },
+        {
+          "market": "美股",
+          "symbol": "GOOGL"
+        },
+        {
+          "market": "美股",
+          "symbol": "GOOG"
+        },
+        {
+          "market": "美股",
+          "symbol": "TSM"
+        },
+        {
+          "market": "台股",
+          "symbol": "2330"
+        },
+        {
+          "market": "台股",
+          "symbol": "2454"
+        },
+        {
+          "market": "台股",
+          "symbol": "2317"
+        },
+        {
+          "market": "台股",
+          "symbol": "2382"
+        }
+      ],
+      "sourceIds": [
+        "china"
+      ]
+    },
+    {
+      "id": "eu-russia",
+      "title": "歐盟擴大對俄軍工相關個人及實體制裁名單",
+      "topic": "地緣風險",
+      "stage": "adopted",
+      "status": "理事會已採納名單",
+      "date": "2026-10-12",
+      "fact": "歐盟理事會 10/12 公布擴大制裁名單，針對俄羅斯軍工體系相關個人及實體。",
+      "impact": "交易對手限制與合規審查 → 貿易、運輸與供應安排 → 相關企業成本及交付風險。能源與運輸公司可作待查標的。",
+      "counter": "新增制裁名單不等於已確認能源供應減少或油價上升。不能僅以產業名稱推定某家公司已受影響。",
+      "next": "核對正式法律文件、適用對象、豁免與公司交易對手；另以能源及航運實際數據驗證傳導。本次未確認所有後續法規變動。",
+      "allStocks": false,
+      "targets": [
+        {
+          "market": "美股",
+          "symbol": "XOM"
+        },
+        {
+          "market": "美股",
+          "symbol": "CVX"
+        },
+        {
+          "market": "美股",
+          "symbol": "SHEL"
+        },
+        {
+          "market": "美股",
+          "symbol": "BP"
+        },
+        {
+          "market": "美股",
+          "symbol": "DAL"
+        },
+        {
+          "market": "美股",
+          "symbol": "UAL"
+        },
+        {
+          "market": "台股",
+          "symbol": "2603"
+        },
+        {
+          "market": "台股",
+          "symbol": "2609"
+        },
+        {
+          "market": "台股",
+          "symbol": "2615"
+        },
+        {
+          "market": "台股",
+          "symbol": "2610"
+        },
+        {
+          "market": "台股",
+          "symbol": "2618"
+        }
+      ],
+      "sourceIds": [
+        "eu"
+      ]
+    }
+  ]
+}
