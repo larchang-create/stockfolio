@@ -27,7 +27,18 @@ try{
  await wait(b,"document.querySelector('#rows').textContent.includes('MSFT')");console.log('PASS two isolated browser contexts share newly added MSFT');
  await evaluate(b,"document.querySelector('[data-expand]').click();document.querySelector('[data-edit]').click();document.querySelector('#stock-form').elements.notes.value='second device fixture note';document.querySelector('#stock-form').requestSubmit();true");
  await wait(b,"document.querySelector('#sync-status').textContent==='已同步'");await evaluate(a,'cloudClient.sync()');assert.equal(await evaluate(a,"stocks.find(s=>s.symbol==='MSFT').notes"),'second device fixture note');console.log('PASS second-device notes reach the first browser');
- await cdp('Page.reload',{},a);await wait(a,"document.querySelector('#sync-status')?.textContent==='已同步'");assert.equal(await evaluate(a,"stocks.find(s=>s.symbol==='MSFT').notes"),'second device fixture note');console.log('PASS login and synchronized notes survive a real reload');
+ const oldA=await evaluate(a,'performance.timeOrigin');await cdp('Page.reload',{},a);await wait(a,`performance.timeOrigin!==${oldA} && typeof stocks!=='undefined' && document.querySelector('#sync-status')?.textContent==='已同步'`);assert.equal(await evaluate(a,"stocks.find(s=>s.symbol==='MSFT').notes"),'second device fixture note');console.log('PASS login and synchronized notes survive a real reload');
+ await evaluate(a,"document.querySelector('[data-view=us]').click();document.querySelector('#add').click();document.querySelector('#quick-market').value='美股';document.querySelector('#quick-symbol').value='AMZN';document.querySelector('#quick-form').requestSubmit();true");
+ await wait(a,"document.querySelector('#sync-status').textContent==='已同步'");
+ await evaluate(a,"loadCompletedResearch(stocks.find(s=>s.symbol==='AMZN').id)");
+ await wait(a,"document.querySelector('#sync-status').textContent==='已同步' && stocks.find(s=>s.symbol==='AMZN')?.analysis?.sections.length===6");
+ await evaluate(b,'cloudClient.sync()');
+ await wait(b,"stocks.find(s=>s.symbol==='AMZN')?.analysis?.sections.length===6");
+ assert.equal(await evaluate(b,"stocks.find(s=>s.symbol==='AMZN').analysis.companyName"),'Amazon.com, Inc.');
+ assert.equal(await evaluate(b,"stocks.find(s=>s.symbol==='MSFT').notes"),'second device fixture note');
+ const oldB=await evaluate(b,'performance.timeOrigin');await cdp('Page.reload',{},b);await wait(b,`performance.timeOrigin!==${oldB} && typeof stocks!=='undefined' && document.querySelector('#sync-status')?.textContent==='已同步' && stocks.find(s=>s.symbol==='AMZN')?.analysis?.sections.length===6`);
+ assert.equal(await evaluate(b,"stocks.find(s=>s.symbol==='AMZN').analysis.sections.length"),6);
+ console.log('PASS completed AMZN report synchronizes to the second browser, survives reload and preserves other notes');
 }catch(e){console.error(e.message);console.error(logs.slice(-3000));process.exitCode=1}finally{
  for(const item of pending.values())item.reject(Error('Test finished'));pending.clear();browser?.kill();if(worker)try{process.kill(-worker.pid,'SIGTERM')}catch{}await sleep(200);await rm(tmp,{recursive:true,force:true});
 }
