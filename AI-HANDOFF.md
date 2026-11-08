@@ -9,7 +9,10 @@
 - UI：觀察列「更新資料」改走公開資料 API；展開顯示來源與日期。總經頁讀雲端快取、來源狀態與折疊更新紀錄；lastCronRun 才代表真正 cron 已觸發，不可拿部署啟動的一次手動 cycle 冒充 cron。GitHub Pages 預覽仍讀靜態資料。
 - scripts/deploy.mjs 沿用既有安全密碼搬移方式，部署後驗證資料服務配置並啟動一次 cycle，不修改密碼。網站資料 API 需要登入、寫入同源。沒有公開排程操作網址。
 - .github/workflows/check-public-sources.yml 只在相關程式變更後以固定 AMZN、2330、0050 做一次唯讀官方來源診斷，不讀正式私人清單，不是定期收集服務。實際排程在 Cloudflare。
-- 驗證：62 項 Node 子測試、真實 Chrome 介面、兩個獨立 Chrome Context 經真正本機 Worker+D1 的名單／筆記／報告／刪除同步及 Wrangler dry-run 打包通過。官方來源實際成功與第一個正式 cron 仍須依部署後紀錄確認，不能僅憑 mock 測試宣稱成功。
+- 驗證：64 項 Node 子測試、真實 Chrome 介面、兩個獨立 Chrome Context 經真正本機 Worker+D1 的名單／筆記／報告／刪除同步及 Wrangler dry-run 打包通過。官方來源實際成功與第一個正式 cron 仍須依部署後紀錄確認，不能僅憑 mock 測試宣稱成功。
+
+- 正式 Cloudflare 已成功部署首版（efcc788）；GitHub runner 的真實來源診斷確認 Fed／CPI／就業／匯率／出口／Fed RSS 成功，AMZN 有 20 個 SEC 文件，0050／2330 可取得 2026-11-06 日期的收盤價。診斷指出台股 API 的「主旨 」欄位尾端有空白、EU RSS 用 a10:updated；已正規化欄名及支援命名空間日期，新增對應測試。2330 不在當次財報彙總／當次公告中是來源範圍，不補造資料。部分來源失敗時保留舊收盤日期及報價。
+- 正式 cron 的首次執行仍要以登入後的 lastCronRun 確認；Agent 沒有 Cloudflare 控制台權限或正式網站密碼，不可聲稱親自讀取正式 D1。GitHub Pages 預覽部署另遇 artifact metadata 平台錯誤，正式 Cloudflare 站部署不受影響。
 
 # 最新階段 2026-11-08：登入提示、逗號範例、直接刪除及 Amazon 重複整理
 
