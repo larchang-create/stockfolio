@@ -10,7 +10,7 @@ The worker creates its own random device secret in a private remote directory. T
 Open the website approval URL returned by `/status`, sign in to Stockfolio, and
 approve that specific remote service. The website stores only a hash. The device
 can read watched tickers and public evidence and write analysis; it cannot read
-personal notes, edit manual fields, or delete stocks. Website passwords and
+general watchlist notes or legacy worksheet sections, edit manual fields, or delete stocks. The owner explicitly authorizes the selected company research note as model context. Website passwords and
 provider credentials are never returned or copied between services. Device
 authorization expires after 90 days and can be revoked at `/remote-connect`.
 
@@ -31,12 +31,12 @@ authorization, public-data completion, model errors and successful research.
 The optional API engine stays unused for this deployment. It requires explicit
 provider configuration and credentials if chosen in the future.
 
-Each pass claims at most two pending companies with a 20-minute lease. It
+Every 15 minutes the process checks for changes; if a prior pass is running it does not overlap. Each pass claims at most two pending companies with a 20-minute lease. Ready companies do not wait for unrelated macro sources. It
 downloads readable official financial sources, submits one model request per
 company, validates identity, period and citations, and writes only `analysis`.
 Failures preserve the previous report. A deleted stock is not recreated, newer
 manual research is not overwritten, and notes/revision updates are protected by
-the website transaction. Unchanged filing evidence reuses the existing report;
+the website transaction. Unchanged filing evidence and company research note reuse the existing report;
 quote or retrieval timestamp changes alone do not trigger a full re-analysis.
 
 This first worker cannot perform a complete arbitrary-company valuation from
@@ -55,3 +55,5 @@ background probe to the website returned ECONNRESET, while the user reports that
 the Omni desktop browser can open it. Do not claim automated research is live
 until the background process actually reads an authorized work batch and writes
 one validated result to the production website.
+
+The simple company note (research.thesis only) is returned when a job is claimed, included in its fingerprint, and treated as a question to verify rather than a financial fact. A note edited while a job is running invalidates the older result. Editing timestamps alone do not trigger another model call. Public-source collection remains a daily batch.

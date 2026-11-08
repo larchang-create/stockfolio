@@ -10,7 +10,7 @@ async function setup(){const env={DB:db(),SITE_PASSWORD:'fixture-only-long-passw
 function request(path,body,t=token){return new Request(site+'/api/remote/'+path,{method:body?'POST':'GET',headers:{Origin:site,Authorization:'Bearer '+t,...(body?{'Content-Type':'application/json'}:{})},...(body?{body:JSON.stringify(body)}:{})})}
 const machine=(env,path,body,t=token,time=now)=>remoteMachine(request(path,body,t),env,{now:time});
 async function pair(env){await remoteOwner(request('pair/approve',{tokenHash:await hash(token)}),env,{now})}
-async function claim(env){const work=await machine(env,'work');assert.equal(work.complete,true);const item=work.candidates[0];return machine(env,'claim',{market:'美股',symbol:'AMZN',fingerprint:item.fingerprint})}
+async function claim(env){const work=await machine(env,'work');assert.ok(work.candidates.length);const item=work.candidates[0];return machine(env,'claim',{market:'美股',symbol:'AMZN',fingerprint:item.fingerprint})}
 test('unapproved and revoked devices cannot read evidence or submit reports; browser approval requires login and same origin',async()=>{
  const env=await setup();await assert.rejects(machine(env,'work'),/授權/);const payload={tokenHash:await hash(token)};
  const r=await worker.fetch(request('pair/approve',payload),env);assert.equal(r.status,401);
@@ -18,9 +18,9 @@ test('unapproved and revoked devices cannot read evidence or submit reports; bro
  await pair(env);await assert.rejects(machine(env,'work',undefined,'B'.repeat(43)),/授權/);const state=await remoteOwner(request('status'),env,{now});await remoteOwner(request('revoke',{deviceId:state.devices[0].id}),env,{now});await assert.rejects(machine(env,'work'),/授權/);
  assert.equal(JSON.stringify(state).includes(token),false);
 });
-test('remote evidence excludes private fields, waits for the full data batch and deduplicates unchanged filings',async()=>{
+test('remote work excludes general private fields and proceeds when an unrelated source is still pending',async()=>{
  const env=await setup();await pair(env);const work=await machine(env,'work');assert.equal(work.candidates.length,1);assert.ok(!JSON.stringify(work).includes('SECRET PERSONAL')&&!JSON.stringify(work).includes('PRIVATE THESIS')&&!JSON.stringify(work).includes('my custom name'));
- await env.DB.prepare('DELETE FROM public_sources WHERE source_id=?').bind('fx').run();const pending=await machine(env,'work');assert.equal(pending.complete,false);assert.deepEqual(pending.candidates,[]);
+ await env.DB.prepare('DELETE FROM public_sources WHERE source_id=?').bind('fx').run();const pending=await machine(env,'work');assert.equal(pending.complete,false);assert.equal(pending.candidates.length,1);assert.ok((await claim(env)).jobId);
 });
 test('completed reports update only analysis, synchronize revision and do not re-run unchanged documents',async()=>{
  const env=await setup(),before=await readState(env.DB,'personal');await pair(env);const candidate=(await machine(env,'work')).candidates[0];const job=await claim(env);assert.ok(job.jobId);assert.equal((await machine(env,'claim',{market:'美股',symbol:'AMZN',fingerprint:candidate.fingerprint})).busy,true);
@@ -36,8 +36,8 @@ test('bad identity, unsupported sources and failed model attempts preserve the e
  assert.equal(sourceURL('http://www.sec.gov/Archives/edgar/data/test'),null);assert.equal(sourceURL('https://www.sec.gov.attacker.test/Archives/edgar/data/test'),null);assert.equal(sourceURL('https://127.0.0.1/private'),null);
 });
 test('remote engine uses only fetched official documents and validates citations before upload',async()=>{
- let calls=0;const options={key:'fixture-secret',model:'fixture-authorized-model',modelBase:'https://provider.test/v1'},job={market:'美股',symbol:'AMZN',evidence:data};
- const fetcher=async(url,init)=>{calls++;if(url.startsWith('https://www.sec.gov/'))return new Response('<h1>Financial statement fixture</h1><p>'+('official public evidence '.repeat(20))+'</p>',{headers:{'Content-Type':'text/html'}});assert.equal(url,'https://provider.test/v1/chat/completions');assert.equal(init.headers.Authorization,'Bearer fixture-secret');const body=JSON.parse(init.body);assert.equal(body.model,'fixture-authorized-model');assert.ok(body.messages[1].content.includes('official public evidence'));return Response.json({choices:[{finish_reason:'stop',message:{content:JSON.stringify(report())}}]})};
+ let calls=0;const options={key:'fixture-secret',model:'fixture-authorized-model',modelBase:'https://provider.test/v1'},job={market:'美股',symbol:'AMZN',evidence:data,researchNote:'API research question'};
+ const fetcher=async(url,init)=>{calls++;if(url.startsWith('https://www.sec.gov/'))return new Response('<h1>Financial statement fixture</h1><p>'+('official public evidence '.repeat(20))+'</p>',{headers:{'Content-Type':'text/html'}});assert.equal(url,'https://provider.test/v1/chat/completions');assert.equal(init.headers.Authorization,'Bearer fixture-secret');const body=JSON.parse(init.body);assert.equal(body.model,'fixture-authorized-model');assert.ok(body.messages[1].content.includes('official public evidence'));assert.equal(JSON.parse(body.messages[1].content).researchNote,'API research question');assert.ok(body.messages[0].content.includes('筆記')||body.messages[0].content.includes('researchNote'));return Response.json({choices:[{finish_reason:'stop',message:{content:JSON.stringify(report())}}]})};
  const result=await analyze(job,options,{fetcher});assert.equal(calls,2);assert.equal(result.sources.length,1);assert.equal(result.sources[0].url,data.filings[0].url);
  await assert.rejects(analyze(job,{...options,key:''},{fetcher:()=>assert.fail('no model call without authorization')}),/授權/);
  await assert.rejects(documents(job,async()=>new Response('forbidden',{status:403})),/原文/);
@@ -50,8 +50,28 @@ test('device identity persists privately and missing model authorization never i
 
 test('native Omni research keeps managed permissions, restricts tools and requires a completed source lookup',async()=>{
  const directory=await mkdtemp(join(tmpdir(),'stockfolio-native-'));try{
- const launcher=withSearch=>(binary,args,options)=>{assert.equal(binary,'codex');assert.ok(!args.includes('--model')&&!args.includes('--dangerously-bypass-approvals-and-sandbox'));assert.ok(args.includes('read-only')&&args.includes('on-request')&&args.includes('shell_tool'));const child=new EventEmitter();child.stdout=new EventEmitter();child.stderr=new EventEmitter();child.kill=()=>{};child.stdin={end(prompt){assert.ok(prompt.includes('AMZN')&&!prompt.includes('SECRET PERSONAL NOTE'));setTimeout(async()=>{await writeFile(args[args.indexOf('--output-last-message')+1],JSON.stringify(report()));if(withSearch)child.stdout.emit('data',Buffer.from(JSON.stringify({type:'item.completed',item:{type:'web_search'}})+'\n'));child.emit('exit',0)},0)}};return child};
- const result=await codexAnalyze({market:'美股',symbol:'AMZN',evidence:data},{dataDir:directory},{launch:launcher(true)});assert.equal(result.sections.length,6);
- await assert.rejects(codexAnalyze({market:'美股',symbol:'AMZN',evidence:data},{dataDir:directory},{launch:launcher(false)}),/查核紀錄/);
+ const launcher=withSearch=>(binary,args,options)=>{assert.equal(binary,'codex');assert.ok(!args.includes('--model')&&!args.includes('--dangerously-bypass-approvals-and-sandbox'));assert.ok(args.includes('read-only')&&args.includes('on-request')&&args.includes('shell_tool'));const child=new EventEmitter();child.stdout=new EventEmitter();child.stderr=new EventEmitter();child.kill=()=>{};child.stdin={end(prompt){assert.ok(prompt.includes('AMZN')&&prompt.includes('USER RESEARCH QUESTION')&&!prompt.includes('SECRET PERSONAL NOTE'));assert.ok(prompt.includes('筆記不是已確認的事實'));setTimeout(async()=>{await writeFile(args[args.indexOf('--output-last-message')+1],JSON.stringify(report()));if(withSearch)child.stdout.emit('data',Buffer.from(JSON.stringify({type:'item.completed',item:{type:'web_search'}})+'\n'));child.emit('exit',0)},0)}};return child};
+ const result=await codexAnalyze({market:'美股',symbol:'AMZN',evidence:data,researchNote:'USER RESEARCH QUESTION'},{dataDir:directory},{launch:launcher(true)});assert.equal(result.sections.length,6);
+ await assert.rejects(codexAnalyze({market:'美股',symbol:'AMZN',evidence:data,researchNote:'USER RESEARCH QUESTION'},{dataDir:directory},{launch:launcher(false)}),/查核紀錄/);
+ }finally{await rm(directory,{recursive:true,force:true})}
+});
+test('only the claimed company note reaches research; note changes requeue without changing public data',async()=>{
+ const env=await setup();await pair(env);const first=(await machine(env,'work')).candidates[0];assert.ok(!JSON.stringify(first).includes('PRIVATE THESIS'));const job=await claim(env);assert.equal(job.researchNote,'PRIVATE THESIS');assert.ok(!JSON.stringify(job).includes('SECRET PERSONAL NOTE'));
+ await machine(env,'result',{jobId:job.jobId,report:report()},token,new Date(now.getTime()+1000));assert.equal((await machine(env,'work')).candidates.length,0);
+ let state=await readState(env.DB,'personal');await writeState(env.DB,'personal',{revision:state.revision,stocks:state.stocks.map(s=>({...s,research:{...s.research,updatedAt:'2026-11-08T08:05:00Z'}}))});assert.equal((await machine(env,'work')).candidates.length,0);
+ state=await readState(env.DB,'personal');await writeState(env.DB,'personal',{revision:state.revision,stocks:state.stocks.map(s=>({...s,research:{...s.research,thesis:'How does AWS earn money?'}}))});const next=(await machine(env,'work')).candidates[0];assert.notEqual(first.fingerprint,next.fingerprint);assert.equal((await claim(env)).researchNote,'How does AWS earn money?');
+});
+test('a note edited during analysis cannot receive a report based on its older version',async()=>{
+ const env=await setup();await pair(env);const job=await claim(env),state=await readState(env.DB,'personal');await writeState(env.DB,'personal',{revision:state.revision,stocks:state.stocks.map(s=>({...s,research:{...s.research,thesis:'NEW QUESTION'}}))});const before=await readState(env.DB,'personal');await assert.rejects(machine(env,'result',{jobId:job.jobId,report:report()}),/筆記已更新/);assert.deepEqual(await readState(env.DB,'personal'),before);
+});
+test('owner sees truthful authorization and online status without note content in the status payload',async()=>{
+ const env=await setup();let status=await remoteOwner(request('status'),env,{now});assert.equal(status.deviceAuthorized,false);assert.equal(status.deviceOnline,false);assert.equal(status.pollMinutes,15);
+ await pair(env);status=await remoteOwner(request('status'),env,{now});assert.equal(status.deviceAuthorized,true);assert.equal(status.deviceOnline,false);await machine(env,'work');status=await remoteOwner(request('status'),env,{now});assert.equal(status.deviceOnline,true);assert.equal(status.stocks[0].pending,true);assert.ok(!JSON.stringify(status).includes('PRIVATE THESIS')&&!JSON.stringify(status).includes('SECRET PERSONAL NOTE'));assert.equal((await remoteOwner(request('status'),env,{now:new Date(now.getTime()+31*60000)})).deviceOnline,false);
+});
+test('the runner processes ready companies every check, even while unrelated public sources are pending',async()=>{
+ const directory=await mkdtemp(join(tmpdir(),'stockfolio-poll-'));try{
+ const env=await setup();await env.DB.prepare('DELETE FROM public_sources WHERE source_id=?').bind('fx').run();let calls=0;
+ const runner=new RemoteRunner({site,dataDir:directory,key:'fixture',model:'fixture',modelBase:'https://provider.test/v1'},{now:()=>now,reporter:()=>{},analyzer:async job=>{calls++;assert.equal(job.researchNote,'PRIVATE THESIS');return report()},fetcher:async(url,init)=>{try{return Response.json(await remoteMachine(new Request(url,init),env,{now}))}catch(e){return Response.json({error:e.message},{status:e.status||500})}}});
+ await runner.start();await remoteOwner(request('pair/approve',{tokenHash:await hash(runner.identity.token)}),env,{now});await runner.tick();assert.equal(calls,1);assert.equal(runner.state.phase,'idle');assert.equal(runner.state.lastSuccess,now.toISOString());await runner.tick();assert.equal(calls,1);
  }finally{await rm(directory,{recursive:true,force:true})}
 });
