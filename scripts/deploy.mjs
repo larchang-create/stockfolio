@@ -54,7 +54,7 @@ export async function deploy({env=process.env,run=runWrangler,verify=verifySite,
  if(dryRun){log('部署打包測試通過；未變更正式網站。');return}
  log('正在驗證正式網站登入與雲端名單存取…');
  const publicSync=await verify({password:env.SITE_PASSWORD,verifyResearch:!!apiKey,verifyPublicData:true});
- if(publicSync)log('公開資料每 15 分鐘分批檢查已設定；已成功檢查來源 '+publicSync.sources.filter(s=>s.state==='ok').length+'，失敗 '+publicSync.sources.filter(s=>s.state==='error').length+'，其餘等待輪替。首次 cron 執行仍以網站紀錄確認。');
+ if(publicSync)log('公開資料每天台灣時間 07:00 起分批更新已設定；已成功檢查來源 '+publicSync.sources.filter(s=>s.state==='ok').length+'，失敗 '+publicSync.sources.filter(s=>s.state==='error').length+'，其餘等待輪替。首次 cron 執行仍以網站紀錄確認。');
  if(apiKey)log('AI 金鑰與模型連線檢查通過；本次部署沒有呼叫付費研究。首次分析請在研究院手動執行。');
  log('驗證成功：正式網站可用設定的密碼登入、讀取雲端名單，測試工作階段已登出。');
 }

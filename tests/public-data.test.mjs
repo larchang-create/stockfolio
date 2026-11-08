@@ -1,7 +1,7 @@
 import test from 'node:test';import assert from 'node:assert/strict';import {DatabaseSync} from 'node:sqlite';
 import worker,{readState,writeState} from '../backend/worker.mjs';
 import {initializeDB} from '../backend/password-auth.mjs';
-import {initializePublicDB,runPublicCycle,refreshStock,publicMacro,publicStocks,publicStatus,PUBLIC_CRON} from '../backend/public-data.mjs';
+import {initializePublicDB,runPublicCycle,refreshStock,publicMacro,publicStocks,publicStatus,PUBLIC_CRON,publicBatchStart} from '../backend/public-data.mjs';
 import {parseCPI,parseEmployment,parsePolicy,parseFX,parseExports,parseFeed,parseSEC,parseTWQuote,latestExportsURL,rocDate} from '../backend/public-data-parsers.mjs';
 function database(){const db=new DatabaseSync(':memory:');return {db,prepare(sql){return {bind(...args){return {async run(){const s=db.prepare(sql);return {results:s.columns().length?s.all(...args):(s.run(...args),[])}}}}}},async batch(items){db.exec('BEGIN');try{const results=[];for(const q of items)results.push(await q.run());db.exec('COMMIT');return results}catch(e){db.exec('ROLLBACK');throw e}}}}
 const now=new Date('2026-11-08T00:00:00Z');
@@ -67,4 +67,17 @@ test('a partially failing Taiwan refresh retains the last dated quote and origin
 test('EU RSS namespace dates preserve the official publication time',()=>{
  const rows=parseFeed('<rss><channel><item><title>Official release</title><link>https://www.consilium.europa.eu/en/press/release/</link><a10:updated>2026-11-06T17:13:00+01:00</a10:updated></item></channel></rss>',{label:'EU',id:'news-eu',hosts:['www.consilium.europa.eu']},now);
  assert.equal(rows.length,1);assert.equal(rows[0].date,'2026-11-06T16:13:00.000Z');
+});
+
+test('daily collection stops after the batch and restarts at Taipei 07:00 without changing private records',async()=>{
+ const env=await setup([stock()]),provider=fixtureProvider(),before=await readState(env.DB,'personal');
+ assert.equal(publicBatchStart(new Date('2026-11-08T22:59:59Z')),'2026-11-07T23:00:00.000Z');
+ assert.equal(publicBatchStart(new Date('2026-11-08T23:00:00Z')),'2026-11-08T23:00:00.000Z');
+ for(let i=0;i<7;i++)await runPublicCycle(env,{fetcher:provider.fetch,now});
+ const count=provider.calls.length;assert.ok((await publicStatus(env,now)).sources.every(s=>s.state==='ok'));
+ for(let i=0;i<5;i++)await runPublicCycle(env,{fetcher:provider.fetch,now:new Date('2026-11-08T22:59:59Z')});
+ assert.equal(provider.calls.length,count,'no repeated automatic upstream fetches before the next 07:00 batch');
+ const next=await runPublicCycle(env,{fetcher:provider.fetch,now:new Date('2026-11-08T23:00:00Z')});
+ assert.equal(next.source,'fed');assert.equal(next.companies,1);assert.ok(provider.calls.length>count);
+ assert.deepEqual(await readState(env.DB,'personal'),before);
 });
