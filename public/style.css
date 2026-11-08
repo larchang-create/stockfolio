@@ -19,3 +19,5 @@
 @media(max-width:1100px){.indicator-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.events-heading{align-items:flex-start;flex-direction:column}}@media(max-width:680px){.indicator-grid{gap:10px}.indicator-card{padding:16px}.indicator-value{font-size:23px}.event-card{padding:20px 16px}.event-card h3{font-size:17px}.event-followup{grid-template-columns:1fr;gap:16px}.event-filters{flex-wrap:wrap;gap:10px}.macro-top h2,.events-heading h2{font-size:20px}}@media(max-width:380px){.indicator-grid{grid-template-columns:1fr}}
 
 .macro-chart .chart-range{font-size:9px;color:var(--muted);margin:5px 0 0}
+
+.login-password-hint{font-size:12px;line-height:1.7;color:var(--muted);margin:8px 0 18px}.row-actions .delete-stock{color:#a15948}.row-actions .duplicate-action{color:#8b6a3d}.row-actions{flex-wrap:wrap}

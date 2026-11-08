@@ -39,6 +39,19 @@ try{
  const oldB=await evaluate(b,'performance.timeOrigin');await cdp('Page.reload',{},b);await wait(b,`performance.timeOrigin!==${oldB} && typeof stocks!=='undefined' && document.querySelector('#sync-status')?.textContent==='已同步' && stocks.find(s=>s.symbol==='AMZN')?.analysis?.sections.length===6`);
  assert.equal(await evaluate(b,"stocks.find(s=>s.symbol==='AMZN').analysis.sections.length"),6);
  console.log('PASS completed AMZN report synchronizes to the second browser, survives reload and preserves other notes');
+ await evaluate(b,"persist([...stocks,normalize({market:'美股',symbol:'AMAZON',name:'Amazon',watch:true,notes:'legacy alias fixture note',research:{thesis:'legacy thesis'}})])");
+ await wait(b,"document.querySelector('#sync-status').textContent==='已同步'");await evaluate(a,'cloudClient.sync()');await wait(a,"stocks.some(s=>s.symbol==='AMAZON')");
+ await evaluate(a,"window.confirm=()=>true;setView('us');document.querySelector('[data-merge]').click();true");
+ await wait(a,"document.querySelector('#sync-status').textContent==='已同步' && !stocks.some(s=>s.symbol==='AMAZON')");
+ await evaluate(b,'cloudClient.sync()');await wait(b,"stocks.find(s=>s.symbol==='AMZN')?.duplicateArchive?.length===2 && !stocks.some(s=>s.symbol==='AMAZON')");
+ assert.equal(await evaluate(b,"stocks.find(s=>s.symbol==='AMZN').notes.includes('legacy alias fixture note')"),true);
+ await evaluate(b,"setView('us');const mergedStock=stocks.find(s=>s.symbol==='AMZN');document.querySelector('[data-expand=\"'+mergedStock.id+'\"]').click();document.querySelector('[data-edit=\"'+mergedStock.id+'\"]').click();document.querySelector('#stock-form').elements.notes.value+=' post-merge edit';document.querySelector('#stock-form').requestSubmit();true");
+ await wait(b,"document.querySelector('#sync-status').textContent==='已同步'");assert.equal(await evaluate(b,"stocks.find(s=>s.symbol==='AMZN').duplicateArchive.length"),2);
+ await evaluate(a,'cloudClient.sync()');await wait(a,"stocks.find(s=>s.symbol==='AMZN').notes.includes('post-merge edit')");
+ assert.equal(await evaluate(a,"stocks.find(s=>s.symbol==='AMZN').analysis.sections.length"),6);console.log('PASS duplicate merge and subsequent edits preserve both original records and synchronize');
+ await evaluate(a,"const mergedId=stocks.find(s=>s.symbol==='AMZN').id;document.querySelector('[data-remove=\"'+mergedId+'\"]').click();true");
+ await wait(a,"document.querySelector('#sync-status').textContent==='已同步' && !stocks.some(s=>s.symbol==='AMZN')");await evaluate(b,'cloudClient.sync()');await wait(b,"!stocks.some(s=>s.symbol==='AMZN'||s.symbol==='AMAZON')");
+ assert.equal(await evaluate(b,"stocks.find(s=>s.symbol==='MSFT').notes"),'second device fixture note');console.log('PASS direct deletion reaches the second browser and preserves unrelated notes');
 }catch(e){console.error(e.message);console.error(logs.slice(-3000));process.exitCode=1}finally{
  for(const item of pending.values())item.reject(Error('Test finished'));pending.clear();browser?.kill();if(worker)try{process.kill(-worker.pid,'SIGTERM')}catch{}await sleep(200);await rm(tmp,{recursive:true,force:true});
 }

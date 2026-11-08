@@ -56,7 +56,7 @@
       if(!response.ok)throw Error(response.status===401?'登入已過期，請重新登入。':'暫時無法載入總經資料。');
       const body=await response.text();if(body.length>300000)fail();
       const data=validate(JSON.parse(body));snapshot=data;renderIndicators();renderEvents();
-    }catch(error){q('#macro-error').hidden=false;q('#macro-error').textContent=(snapshot?'更新失敗，保留原資料與查核日期。':'')+(error.name==='TypeError'?'網路連線失敗，請稍後再試。':['TimeoutError','AbortError'].includes(error.name)?'載入逾時，請稍後再試。':error.name==='SyntaxError'?'未取得有效資料，請確認登入狀態。':error.message);if(!snapshot)q('#macro-updated').textContent='未能載入資料'}finally{q('#macro-refresh').disabled=false;loading=null}})();
+    }catch(error){q('#macro-error').hidden=false;q('#macro-error').textContent=(snapshot?'更新失敗，保留原資料與查核日期。':'')+(error.name==='TypeError'&&error.message.includes('fetch')?'網路連線失敗，請稍後再試。':['TimeoutError','AbortError'].includes(error.name)?'載入逾時，請稍後再試。':error.name==='SyntaxError'?'未取得有效資料，請確認登入狀態。':error.message);if(!snapshot)q('#macro-updated').textContent='未能載入資料'}finally{q('#macro-refresh').disabled=false;loading=null}})();
     return loading;
   }
   function setStocks(nextStocks){stocks=nextStocks;renderEvents()}

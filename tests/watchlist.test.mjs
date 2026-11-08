@@ -16,3 +16,20 @@ test('invalid or oversized batch is rejected before creating any stock',()=>{
   let called=0;assert.throws(()=>plan([],market,raw,()=>called++));assert.equal(called,0);
  }
 });
+test('Amazon input aliases resolve to AMZN and cannot create another company record',()=>{
+ assert.deepEqual(parse('美股','AMZN,Amazon,AMAZON.COM'),{symbols:['AMZN'],repeated:2});
+ const original={id:'old',market:'美股',symbol:'AMAZON',name:'Amazon',watch:true,notes:'keep'};
+ const result=plan([original],'美股','AMZN',create);assert.equal(result.added,0);assert.equal(result.corrected,1);assert.equal(result.skipped,0);assert.equal(result.stocks[0].symbol,'AMZN');assert.equal(result.stocks[0].id,'old');assert.equal(result.stocks[0].notes,'keep');assert.equal(original.symbol,'AMAZON');
+ const both=[original,{...original,id:'canonical',symbol:'AMZN'}];assert.equal(plan(both,'美股','Amazon',create).stocks.length,2);
+});
+test('existing Amazon duplicates merge notes, drafts and latest report while archiving both originals',()=>{
+ const a={id:'a',market:'美股',symbol:'AMZN',name:'My Amazon',watch:true,notes:'canonical note',history:[{date:'2026-11-01',notes:'first review'}],research:{thesis:'first thesis',sections:[{summary:'first business',asOf:'2026-09-30'}]},analysis:{generatedAt:'2026-11-01T00:00:00Z',business:'old report'}};
+ const b={id:'b',market:'美股',symbol:'AMAZON',name:'Amazon',watch:false,notes:'alias note',history:[{date:'2026-11-02',notes:'second review'}],research:{thesis:'second thesis',sections:[{summary:'second business',asOf:'2026-06-30'}]},analysis:{generatedAt:'2026-11-08T00:00:00Z',business:'new report'}};
+ const before=structuredClone([a,b]);const result=StockfolioWatchlist.mergeDuplicates([a,b],b);
+ assert.equal(result.stocks.length,1);const s=result.stock;assert.equal(s.symbol,'AMZN');assert.equal(s.id,a.id);assert.equal(s.name,'My Amazon');assert.match(s.notes,/canonical note/);assert.match(s.notes,/alias note/);assert.match(s.research.thesis,/first thesis/);assert.match(s.research.thesis,/second thesis/);assert.match(s.research.sections[0].summary,/second business/);assert.equal(s.research.sections[0].asOf,'');assert.equal(s.history.length,2);assert.equal(s.analysis.business,'new report');assert.deepEqual(s.duplicateArchive,before);assert.deepEqual([a,b],before);
+});
+test('merging unrelated records or oversized notes refuses without altering any data',()=>{
+ const a={id:'a',market:'美股',symbol:'AMZN',name:'AMZN',notes:'a'.repeat(5000)};
+ assert.throws(()=>StockfolioWatchlist.mergeDuplicates([a,{...a,id:'b',symbol:'MSFT'}],a));
+ const b={...a,id:'b',symbol:'AMAZON',notes:'b'.repeat(5000)};assert.throws(()=>StockfolioWatchlist.mergeDuplicates([a,b],a),/長度/);assert.equal(a.symbol,'AMZN');assert.equal(b.symbol,'AMAZON');
+});
