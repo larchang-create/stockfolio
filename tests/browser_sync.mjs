@@ -5,6 +5,7 @@ import {tmpdir} from 'node:os';
 import {join,dirname} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import https from 'node:https';
+import {createHash,randomBytes} from 'node:crypto';
 import assert from 'node:assert/strict';
 const project=dirname(dirname(fileURLToPath(import.meta.url))),origin='https://stockfolio.test:8792',password='fixture-only-password-long-enough';
 const tmp=await mkdtemp(join(tmpdir(),'stockfolio-browser-'));
@@ -52,6 +53,18 @@ try{
  await evaluate(a,"const mergedId=stocks.find(s=>s.symbol==='AMZN').id;document.querySelector('[data-remove=\"'+mergedId+'\"]').click();true");
  await wait(a,"document.querySelector('#sync-status').textContent==='已同步' && !stocks.some(s=>s.symbol==='AMZN')");await evaluate(b,'cloudClient.sync()');await wait(b,"!stocks.some(s=>s.symbol==='AMZN'||s.symbol==='AMAZON')");
  assert.equal(await evaluate(b,"stocks.find(s=>s.symbol==='MSFT').notes"),'second device fixture note');console.log('PASS direct deletion reaches the second browser and preserves unrelated notes');
+ const remoteToken=randomBytes(32).toString('base64url'),remoteHash=createHash('sha256').update(remoteToken).digest('hex');
+ const guestContext=await cdp('Target.createBrowserContext'),guestTarget=await cdp('Target.createTarget',{url:origin+'/remote-connect?key='+remoteHash,browserContextId:guestContext.browserContextId});
+ const {sessionId:guest}=await cdp('Target.attachToTarget',{targetId:guestTarget.targetId,flatten:true});
+ await wait(guest,"document.querySelector('#login-form') && !document.querySelector('#login-form').hidden");
+ await evaluate(guest,`document.querySelector('#login-password').value=${JSON.stringify(password)};document.querySelector('#login-form').requestSubmit();true`);
+ await wait(guest,"location.pathname==='/remote-connect' && document.querySelector('#approve') && !document.querySelector('#pair-section').hidden");
+ await evaluate(guest,"document.querySelector('#approve').click();true");await wait(guest,"document.querySelector('#remote-message').textContent.includes('已授權') && document.querySelector('#remote-devices button')");
+ const remoteStatus=await evaluate(guest,`fetch('/api/remote/work',{credentials:'omit',headers:{Authorization:'Bearer '+${JSON.stringify(remoteToken)}}}).then(async r=>({status:r.status,data:await r.json()}))`);assert.equal(remoteStatus.status,200);assert.equal(JSON.stringify(remoteStatus).includes('second device fixture note'),false);
+ const forbidden=await evaluate(guest,`fetch('/api/state',{credentials:'omit',headers:{Authorization:'Bearer '+${JSON.stringify(remoteToken)}}}).then(r=>r.status)`);assert.equal(forbidden,401);
+ await evaluate(guest,"window.confirm=()=>true;document.querySelector('#remote-devices button').click();true");await wait(guest,"document.querySelector('#remote-message').textContent.includes('已撤銷')");
+ assert.equal(await evaluate(guest,`fetch('/api/remote/work',{credentials:'omit',headers:{Authorization:'Bearer '+${JSON.stringify(remoteToken)}}}).then(r=>r.status)`),401);
+ console.log('PASS website approval survives login redirect; remote bearer has scoped access and revocation takes effect');
 }catch(e){console.error(e.message);console.error(logs.slice(-3000));process.exitCode=1}finally{
  for(const item of pending.values())item.reject(Error('Test finished'));pending.clear();browser?.kill();if(worker)try{process.kill(-worker.pid,'SIGTERM')}catch{}await sleep(200);await rm(tmp,{recursive:true,force:true});
 }

@@ -1,4 +1,5 @@
 import {PUBLIC_CRON,runPublicCycle,refreshStock,publicStatus,publicMacro,publicStocks} from './public-data.mjs';
+import {remoteMachine,remoteOwner} from './remote-research.mjs';
 import {ServiceError,validateInput} from './research.mjs';
 export {collectSources,validateInput,validateReport,researchCompany} from './research.mjs';
 import {researchConfig,checkResearch,runCompanyResearch} from './research-service.mjs';
@@ -51,12 +52,15 @@ export default {async scheduled(controller,env){return runPublicCycle(env,{now:n
   if(url.pathname==='/api/login'&&request.method==='POST')return reply({ok:true},200,{'Set-Cookie':await login(request,env)});
   if(url.pathname==='/api/logout'&&request.method==='POST')return reply({ok:true},200,{'Set-Cookie':await logout(request,env)});
   if(['/login','/login.html','/login.js','/style.css'].includes(url.pathname)&&['GET','HEAD'].includes(request.method))return await asset(url.pathname==='/login'?'/login.html':url.pathname);
+  const machine=await remoteMachine(request,env);if(machine!==null)return reply(machine);
   let owner;
   try{owner=await identity(request,env)}catch(e){
-   if(!url.pathname.startsWith('/api/')&&['GET','HEAD'].includes(request.method)&&e instanceof ServiceError&&[401,503].includes(e.status))return new Response(null,{status:302,headers:{Location:'/login','Cache-Control':'no-store'}});
+   if(!url.pathname.startsWith('/api/')&&['GET','HEAD'].includes(request.method)&&e instanceof ServiceError&&[401,503].includes(e.status))return new Response(null,{status:302,headers:{Location:url.pathname==='/remote-connect'?'/login?next='+encodeURIComponent(url.pathname+url.search):'/login','Cache-Control':'no-store'}});
    throw e;
   }
   if(url.pathname==='/api/session'&&request.method==='GET')return reply({accountId:owner,label:'我的個人資料',syncReady:!!env.DB,analysisReady:researchConfig(env).configured,researchModel:researchConfig(env).model});
+  const remote=await remoteOwner(request,env);if(remote!==null)return reply(remote);
+  if(url.pathname==='/remote-connect'&&request.method==='GET')return await asset('/remote-connect.html');
   if(url.pathname==='/api/public-data/status'&&request.method==='GET')return reply(await publicStatus(env));
   if(url.pathname==='/api/public-data/macro'&&request.method==='GET')return reply(await publicMacro(env));
   if(url.pathname==='/api/public-data/stocks'&&request.method==='GET')return reply(await publicStocks(env));
