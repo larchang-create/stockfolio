@@ -36,6 +36,21 @@
       "id": "eu",
       "title": "歐盟理事會｜2026-10-12 對俄制裁名單公告",
       "url": "https://www.consilium.europa.eu/en/press/press-releases/2026/10/12/russia-s-war-of-aggression-against-ukraine-eu-agrees-largest-ever-package-of-listings-targeting-almost-1600-individuals-and-entities-in-russia-s-military-industrial-complex/"
+    },
+    {
+      "id": "iea-mena",
+      "title": "IEA｜中東能源安全與供應衝擊（2026-11-03）",
+      "url": "https://www.iea.org/commentaries/how-the-energy-crisis-is-redefining-energy-security-in-the-middle-east-and-north-africa"
+    },
+    {
+      "id": "iea-oil-oct",
+      "title": "IEA｜2026 年 10 月油市報告（10/14 發布）",
+      "url": "https://www.iea.org/reports/oil-market-report-october-2026"
+    },
+    {
+      "id": "fed-october-source",
+      "title": "聯準會｜2026-10-28 FOMC 聲明",
+      "url": "https://www.federalreserve.gov/newsevents/pressreleases/monetary20261028a.htm"
     }
   ],
   "indicators": [
@@ -187,6 +202,370 @@
   ],
   "events": [
     {
+      "id": "middle-east-energy",
+      "title": "中東衝突，如何影響你的投資？",
+      "topic": "地緣風險",
+      "stage": "announced",
+      "status": "持續追蹤",
+      "date": "2026-11-03",
+      "updatedAt": "2026-11-08",
+      "importance": "major",
+      "ongoing": true,
+      "updateNote": "本次整理能源、航運、科技、利率與國防五條路徑；公司影響仍須逐一核對。",
+      "fact": "IEA 11/3 指出，荷姆茲海峽運輸反覆受阻，影響油氣供應；具替代出口路線的產油國，處境也不同。",
+      "impact": "先看能源供應與航運，再追蹤成本、需求和企業獲利；不同公司可能受到相反影響。",
+      "counter": "戰爭不等於油價只漲不跌，也不代表所有能源或國防公司都受惠。公司曝險與目前價格仍待驗證。",
+      "next": "觀察通航、實際出口與能源價格，再核對公司合約、成本、需求與財測。",
+      "allStocks": false,
+      "targets": [
+        {
+          "market": "美股",
+          "symbol": "XOM"
+        },
+        {
+          "market": "美股",
+          "symbol": "CVX"
+        },
+        {
+          "market": "美股",
+          "symbol": "SHEL"
+        },
+        {
+          "market": "美股",
+          "symbol": "BP"
+        },
+        {
+          "market": "美股",
+          "symbol": "DAL"
+        },
+        {
+          "market": "美股",
+          "symbol": "UAL"
+        },
+        {
+          "market": "台股",
+          "symbol": "2610"
+        },
+        {
+          "market": "台股",
+          "symbol": "2618"
+        },
+        {
+          "market": "美股",
+          "symbol": "AMZN"
+        },
+        {
+          "market": "美股",
+          "symbol": "WMT"
+        },
+        {
+          "market": "台股",
+          "symbol": "2603"
+        },
+        {
+          "market": "台股",
+          "symbol": "2609"
+        },
+        {
+          "market": "台股",
+          "symbol": "2615"
+        },
+        {
+          "market": "台股",
+          "symbol": "2317"
+        },
+        {
+          "market": "台股",
+          "symbol": "2382"
+        },
+        {
+          "market": "美股",
+          "symbol": "MSFT"
+        },
+        {
+          "market": "美股",
+          "symbol": "GOOG"
+        },
+        {
+          "market": "美股",
+          "symbol": "GOOGL"
+        },
+        {
+          "market": "美股",
+          "symbol": "TSM"
+        },
+        {
+          "market": "美股",
+          "symbol": "ORCL"
+        },
+        {
+          "market": "台股",
+          "symbol": "2330"
+        },
+        {
+          "market": "台股",
+          "symbol": "2303"
+        },
+        {
+          "market": "台股",
+          "symbol": "2308"
+        },
+        {
+          "market": "美股",
+          "symbol": "LMT"
+        },
+        {
+          "market": "美股",
+          "symbol": "RTX"
+        },
+        {
+          "market": "美股",
+          "symbol": "NOC"
+        },
+        {
+          "market": "美股",
+          "symbol": "AVAV"
+        },
+        {
+          "market": "台股",
+          "symbol": "2634"
+        },
+        {
+          "market": "台股",
+          "symbol": "1519"
+        }
+      ],
+      "sourceIds": [
+        "iea-mena",
+        "iea-oil-oct"
+      ],
+      "paths": [
+        {
+          "id": "energy",
+          "title": "能源與運輸",
+          "horizon": "較直接",
+          "nodes": [
+            "油氣運輸反覆受阻",
+            "燃料成本可能提高",
+            "油氣、航空、運輸"
+          ],
+          "summary": "同是能源業，能正常出口與出口受阻的公司，結果可能相反。",
+          "question": "企業能正常生產與交貨嗎？燃油避險、票價與合約，能抵銷多少成本？",
+          "checks": [
+            "追蹤原油、航空燃油與實際供應量；不能只看單日價格。",
+            "核對公司燃料支出、避險、運量與客運收益。"
+          ],
+          "counter": "供應與通航恢復，或需求轉弱，可能改變油價走勢。油價上漲也不保證能源股上漲。",
+          "allStocks": false,
+          "targets": [
+            {
+              "market": "美股",
+              "symbol": "XOM"
+            },
+            {
+              "market": "美股",
+              "symbol": "CVX"
+            },
+            {
+              "market": "美股",
+              "symbol": "SHEL"
+            },
+            {
+              "market": "美股",
+              "symbol": "BP"
+            },
+            {
+              "market": "美股",
+              "symbol": "DAL"
+            },
+            {
+              "market": "美股",
+              "symbol": "UAL"
+            },
+            {
+              "market": "台股",
+              "symbol": "2610"
+            },
+            {
+              "market": "台股",
+              "symbol": "2618"
+            }
+          ]
+        },
+        {
+          "id": "supply",
+          "title": "供應鏈與交期",
+          "horizon": "較直接",
+          "nodes": [
+            "航線安全風險增加",
+            "運費、保險與交期可能改變",
+            "航運、零售、代工"
+          ],
+          "summary": "運費提高不保證航運公司獲利增加；要分清航線、合約與新增成本。",
+          "question": "商品是否經過受影響航線？延誤有多大？新增費用由供應商、公司還是客戶承擔？",
+          "checks": [
+            "查看航商正式公告的停航、改道、保險及附加費。",
+            "核對公司配送費用、庫存與交期，區分荷姆茲與紅海航線。"
+          ],
+          "counter": "若未使用受影響航線，或能改用替代供應來源，實際影響可能有限。",
+          "allStocks": false,
+          "targets": [
+            {
+              "market": "美股",
+              "symbol": "AMZN"
+            },
+            {
+              "market": "美股",
+              "symbol": "WMT"
+            },
+            {
+              "market": "台股",
+              "symbol": "2603"
+            },
+            {
+              "market": "台股",
+              "symbol": "2609"
+            },
+            {
+              "market": "台股",
+              "symbol": "2615"
+            },
+            {
+              "market": "台股",
+              "symbol": "2317"
+            },
+            {
+              "market": "台股",
+              "symbol": "2382"
+            }
+          ]
+        },
+        {
+          "id": "tech",
+          "title": "科技與電力",
+          "horizon": "間接",
+          "nodes": [
+            "能源供應風險增加",
+            "供電與成本成為研究重點",
+            "晶圓製造、CSP、電力"
+          ],
+          "summary": "先區分「電變貴」與「電不夠用」，再看所在地、供電合約與備援能力。",
+          "question": "是否有正式公告的服務或供電影響？成本能否轉嫁？規模是否足以改變長期獲利？",
+          "checks": [
+            "查公司公告的服務狀態、地區營運與供電安排。",
+            "核對法說與財報的能源成本、毛利及資本支出；缺資料就保留未知。"
+          ],
+          "counter": "若服務穩定、成本已鎖定且曝險有限，就不足以直接推翻長期投資理由。",
+          "allStocks": false,
+          "targets": [
+            {
+              "market": "美股",
+              "symbol": "MSFT"
+            },
+            {
+              "market": "美股",
+              "symbol": "AMZN"
+            },
+            {
+              "market": "美股",
+              "symbol": "GOOG"
+            },
+            {
+              "market": "美股",
+              "symbol": "GOOGL"
+            },
+            {
+              "market": "美股",
+              "symbol": "TSM"
+            },
+            {
+              "market": "美股",
+              "symbol": "ORCL"
+            },
+            {
+              "market": "台股",
+              "symbol": "2330"
+            },
+            {
+              "market": "台股",
+              "symbol": "2303"
+            },
+            {
+              "market": "台股",
+              "symbol": "2308"
+            }
+          ]
+        },
+        {
+          "id": "rates",
+          "title": "利率與消費",
+          "horizon": "間接",
+          "nodes": [
+            "能源價格壓力延續",
+            "通膨、消費與利率預期改變",
+            "軟體、金融、房地產"
+          ],
+          "summary": "能源上漲不代表利率一定上升，還要同時看物價與經濟需求。",
+          "question": "利率預期是否改變估值與融資成本？客戶是否真的延後採購、消費或購屋？",
+          "checks": [
+            "比較整體與核心通膨，追蹤央行說法及市場利率。",
+            "核對公司訂單、財測與再融資條件，而非僅根據市場情緒。"
+          ],
+          "counter": "若物價壓力消退，或需求疲弱讓政策轉向，原先傳導路徑可能改變。",
+          "allStocks": false,
+          "targets": []
+        },
+        {
+          "id": "defense",
+          "title": "國防與基建",
+          "horizon": "中長期",
+          "nodes": [
+            "安全與韌性需求增加",
+            "預算可能轉為採購與投資",
+            "國防、儲能、備援電力"
+          ],
+          "summary": "題材可能先反應；正式訂單、交付與收入通常需要更長時間。",
+          "question": "是否已有正式預算、合約與相關產品？公司有能力按期交貨並獲利嗎？",
+          "checks": [
+            "查官方預算、招標、合約與公司訂單公告。",
+            "追蹤在手訂單、產能、交期與毛利，避免把題材當成已實現獲利。"
+          ],
+          "counter": "預算未落實、產品不符或股價已反映過高期待，都可能讓看似有利的題材失去投資價值。",
+          "allStocks": false,
+          "targets": [
+            {
+              "market": "美股",
+              "symbol": "LMT"
+            },
+            {
+              "market": "美股",
+              "symbol": "RTX"
+            },
+            {
+              "market": "美股",
+              "symbol": "NOC"
+            },
+            {
+              "market": "美股",
+              "symbol": "AVAV"
+            },
+            {
+              "market": "台股",
+              "symbol": "2634"
+            },
+            {
+              "market": "台股",
+              "symbol": "2308"
+            },
+            {
+              "market": "台股",
+              "symbol": "1519"
+            }
+          ]
+        }
+      ]
+    },
+    {
       "id": "fed-october",
       "title": "聯準會維持利率，後續仍看通膨資訊",
       "topic": "政策利率",
@@ -200,7 +579,31 @@
       "allStocks": true,
       "targets": [],
       "sourceIds": [
-        "fed"
+        "fed-october-source"
+      ],
+      "updatedAt": "2026-10-28",
+      "importance": "normal",
+      "ongoing": true,
+      "updateNote": "保留原始公告日期，等待後續正式文件。",
+      "paths": [
+        {
+          "id": "main",
+          "title": "主要影響",
+          "horizon": "待驗證",
+          "nodes": [
+            "政策利率",
+            "成本、需求或估值假設",
+            "成長股、金融、房地產"
+          ],
+          "summary": "利率預期 → 折現率與企業融資成本 → 成長股、金融及房地產估值。這是研究路徑，方向與幅度需另行驗證。",
+          "question": "觀察後續通膨、就業與下一份 FOMC 正式聲明；公司端核對借款到期、利息費用與估值假設。",
+          "checks": [
+            "觀察後續通膨、就業與下一份 FOMC 正式聲明；公司端核對借款到期、利息費用與估值假設。"
+          ],
+          "counter": "維持利率不是承諾降息，也不能單憑聲明判定股市必漲或必跌；本次尚未整理可靠的市場利率預期。",
+          "allStocks": true,
+          "targets": []
+        }
       ]
     },
     {
@@ -263,6 +666,75 @@
       ],
       "sourceIds": [
         "china"
+      ],
+      "updatedAt": "2026-10-16",
+      "importance": "normal",
+      "ongoing": true,
+      "updateNote": "保留原始公告日期，等待後續正式文件。",
+      "paths": [
+        {
+          "id": "main",
+          "title": "主要影響",
+          "horizon": "待驗證",
+          "nodes": [
+            "科技管制",
+            "成本、需求或估值假設",
+            "軟體、半導體、製造"
+          ],
+          "summary": "跨境技術授權或移轉條件 → 合作方式、交付時程與合規成本 → AI、雲端與相關供應鏈的研究假設。",
+          "question": "確認正式修訂、實施日期與附件適用技術；再查公司法說及正式申報中的實際影響。本次未確認公告後是否已有進一步修訂。",
+          "checks": [
+            "確認正式修訂、實施日期與附件適用技術；再查公司法說及正式申報中的實際影響。本次未確認公告後是否已有進一步修訂。"
+          ],
+          "counter": "目錄修訂仍屬提案，臨時登記是另一項已公告措施；不能把它統稱為所有 AI 產品禁止出口。下列公司僅作研究關聯，尚未確認實際曝險。",
+          "allStocks": false,
+          "targets": [
+            {
+              "market": "美股",
+              "symbol": "NVDA"
+            },
+            {
+              "market": "美股",
+              "symbol": "AMD"
+            },
+            {
+              "market": "美股",
+              "symbol": "MSFT"
+            },
+            {
+              "market": "美股",
+              "symbol": "AMZN"
+            },
+            {
+              "market": "美股",
+              "symbol": "GOOGL"
+            },
+            {
+              "market": "美股",
+              "symbol": "GOOG"
+            },
+            {
+              "market": "美股",
+              "symbol": "TSM"
+            },
+            {
+              "market": "台股",
+              "symbol": "2330"
+            },
+            {
+              "market": "台股",
+              "symbol": "2454"
+            },
+            {
+              "market": "台股",
+              "symbol": "2317"
+            },
+            {
+              "market": "台股",
+              "symbol": "2382"
+            }
+          ]
+        }
       ]
     },
     {
@@ -325,7 +797,77 @@
       ],
       "sourceIds": [
         "eu"
+      ],
+      "updatedAt": "2026-10-12",
+      "importance": "other",
+      "ongoing": true,
+      "updateNote": "保留原始公告日期，等待後續正式文件。",
+      "paths": [
+        {
+          "id": "main",
+          "title": "主要影響",
+          "horizon": "待驗證",
+          "nodes": [
+            "地緣風險",
+            "成本、需求或估值假設",
+            "能源、運輸、貿易"
+          ],
+          "summary": "交易對手限制與合規審查 → 貿易、運輸與供應安排 → 相關企業成本及交付風險。能源與運輸公司可作待查標的。",
+          "question": "核對正式法律文件、適用對象、豁免與公司交易對手；另以能源及航運實際數據驗證傳導。本次未確認所有後續法規變動。",
+          "checks": [
+            "核對正式法律文件、適用對象、豁免與公司交易對手；另以能源及航運實際數據驗證傳導。本次未確認所有後續法規變動。"
+          ],
+          "counter": "新增制裁名單不等於已確認能源供應減少或油價上升。不能僅以產業名稱推定某家公司已受影響。",
+          "allStocks": false,
+          "targets": [
+            {
+              "market": "美股",
+              "symbol": "XOM"
+            },
+            {
+              "market": "美股",
+              "symbol": "CVX"
+            },
+            {
+              "market": "美股",
+              "symbol": "SHEL"
+            },
+            {
+              "market": "美股",
+              "symbol": "BP"
+            },
+            {
+              "market": "美股",
+              "symbol": "DAL"
+            },
+            {
+              "market": "美股",
+              "symbol": "UAL"
+            },
+            {
+              "market": "台股",
+              "symbol": "2603"
+            },
+            {
+              "market": "台股",
+              "symbol": "2609"
+            },
+            {
+              "market": "台股",
+              "symbol": "2615"
+            },
+            {
+              "market": "台股",
+              "symbol": "2610"
+            },
+            {
+              "market": "台股",
+              "symbol": "2618"
+            }
+          ]
+        }
       ]
     }
-  ]
+  ],
+  "eventsReviewedAt": "2026-11-08"
 }

@@ -81,3 +81,8 @@ test('daily collection stops after the batch and restarts at Taipei 07:00 withou
  assert.equal(next.source,'fed');assert.equal(next.companies,1);assert.ok(provider.calls.length>count);
  assert.deepEqual(await readState(env.DB,'personal'),before);
 });
+test('newly published event briefs reach an existing cached deployment without replacing live indicators or private data',async()=>{
+ const env=await setup([stock()]);await initializePublicDB(env.DB);const before=await readState(env.DB,'personal'),old=structuredClone(await publicMacro(env));old.events=[];old.sources=old.sources.filter(s=>!s.id.startsWith('iea-'));old.checkedAt='2026-11-06';old.indicators[0].value='fixture updated value';old.sources.find(s=>s.id==='fed').url='https://www.federalreserve.gov/newsevents/pressreleases/latest.htm';
+ await env.DB.prepare('INSERT INTO public_cache(cache_key,data_json,updated_at) VALUES (?,?,?)').bind('macro',JSON.stringify(old),now.toISOString()).run();
+ const updated=await publicMacro(env);assert.equal(updated.events.find(e=>e.id==='middle-east-energy').paths.length,5);assert.equal(updated.eventsReviewedAt,'2026-11-08');assert.equal(updated.indicators[0].value,'fixture updated value');assert.equal(updated.sources.find(s=>s.id==='fed').url,old.sources.find(s=>s.id==='fed').url);assert.ok(updated.sources.some(s=>s.id==='iea-mena'));assert.deepEqual(await readState(env.DB,'personal'),before);
+});

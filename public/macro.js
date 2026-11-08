@@ -18,17 +18,29 @@
       const periodEnd=date(x.periodEnd,checkedAt),publishedAt=date(x.publishedAt,checkedAt);if(periodEnd>publishedAt||last>periodEnd)fail();
       return {id:key(x.id),title:text(x.title,100),value:text(x.value,80),unit:text(x.unit,100),comparison:text(x.comparison,300),period:text(x.period,100),periodEnd,publishedAt,interpretation:text(x.interpretation),history,sourceIds:refs(x.sourceIds)};
     });
+    function targetsOf(list){if(!Array.isArray(list)||list.length>200)fail();return list.map(t=>{if(!['台股','美股'].includes(t.market)||typeof t.symbol!=='string'||!(t.market==='台股'?/^[0-9]{4,6}[A-Z]?$/:/^[A-Z][A-Z0-9.-]{0,19}$/).test(t.symbol))fail();return {market:t.market,symbol:t.symbol}})}
     const events=raw.events.map(x=>{
       if(!['政策利率','科技管制','地緣風險'].includes(x.topic)||!['announced','consultation','adopted'].includes(x.stage)||typeof x.allStocks!=='boolean'||!Array.isArray(x.targets)||x.targets.length>200)fail();
-      const targets=x.targets.map(t=>{if(!['台股','美股'].includes(t.market)||typeof t.symbol!=='string'||!(t.market==='台股'?/^[0-9]{4,6}[A-Z]?$/:/^[A-Z][A-Z0-9.-]{0,19}$/).test(t.symbol))fail();return {market:t.market,symbol:t.symbol}});
-      return {id:key(x.id),title:text(x.title,200),topic:x.topic,stage:x.stage,status:text(x.status,100),date:date(x.date,checkedAt),fact:text(x.fact),impact:text(x.impact),counter:text(x.counter),next:text(x.next),allStocks:x.allStocks,targets,sourceIds:refs(x.sourceIds)};
+      const targets=targetsOf(x.targets),eventDate=date(x.date,checkedAt),updatedAt=date(x.updatedAt||x.date,checkedAt),importance=x.importance||'normal';
+      if(updatedAt<eventDate||!['major','normal','other'].includes(importance)||(x.ongoing!==undefined&&typeof x.ongoing!=='boolean'))fail();
+      const pathIds=new Set();if(x.paths!==undefined&&(!Array.isArray(x.paths)||!x.paths.length||x.paths.length>10))fail();
+      const paths=(x.paths||[]).map(p=>{const id=text(p.id,80);if(!/^[a-z0-9-]+$/.test(id)||pathIds.has(id)||!Array.isArray(p.nodes)||p.nodes.length!==3||!Array.isArray(p.checks)||!p.checks.length||p.checks.length>10||typeof p.allStocks!=='boolean')fail();pathIds.add(id);return {id,title:text(p.title,100),horizon:text(p.horizon,50),nodes:p.nodes.map(n=>text(n,200)),summary:text(p.summary),question:text(p.question),checks:p.checks.map(c=>text(c,1000)),counter:text(p.counter),allStocks:p.allStocks,targets:targetsOf(p.targets)}});
+      return {id:key(x.id),title:text(x.title,200),topic:x.topic,stage:x.stage,status:text(x.status,100),date:eventDate,updatedAt,importance,ongoing:x.ongoing!==false,updateNote:x.updateNote?text(x.updateNote):'',paths,fact:text(x.fact),impact:text(x.impact),counter:text(x.counter),next:text(x.next),allStocks:x.allStocks,targets,sourceIds:refs(x.sourceIds)};
     });
     const sync=raw.sync&&raw.sync.enabled===true?{...raw.sync,sources:Array.isArray(raw.sync.sources)?raw.sync.sources:[]}:null;
     const announcements=Array.isArray(raw.announcements)?raw.announcements.filter(n=>n&&typeof n.title==='string'&&typeof n.date==='string'&&Number.isFinite(Date.parse(n.date))&&Date.parse(n.date)<=now.getTime()).map(n=>{let url;try{url=new URL(n.url)}catch{return null}return url.protocol==='https:'&&!url.username&&!url.password?{title:n.title.slice(0,300),url:url.href,date:n.date,source:String(n.source||'官方公告').slice(0,100)}:null}).filter(Boolean).slice(0,40):[];
-    return {schemaVersion:1,checkedAt,sources,indicators,events,sync,announcements};
+    return {schemaVersion:1,checkedAt,eventsReviewedAt:raw.eventsReviewedAt?date(raw.eventsReviewedAt,checkedAt):null,sources,indicators,events,sync,announcements};
   }
   function related(event, stocks) {return stocks.filter(s=>s.watch && (event.allStocks || event.targets.some(t=>t.market===s.market&&t.symbol===s.symbol)))}
   function filter(events,{topic='all',onlyRelated=false,stocks=[]}={}) {return events.filter(e=>(topic==='all'||e.topic===topic)&&(!onlyRelated||related(e,stocks).length))}
+  function groupEvents(events,{stocks=[],now=new Date()}={}){
+    const today=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Taipei',year:'numeric',month:'2-digit',day:'2-digit'}).format(now),recent=new Date(Date.parse(today+'T00:00:00Z')-2*86400000).toISOString().slice(0,10);
+    const unique=[...new Map(events.map(e=>[e.id,e])).values()];
+    const sorted=unique.sort((a,b)=>(b.importance==='major')-(a.importance==='major')||Number(!!related(b,stocks).length)-Number(!!related(a,stocks).length)||(b.updatedAt||b.date).localeCompare(a.updatedAt||a.date)||a.id.localeCompare(b.id));
+    const focus=[],ongoing=[],other=[];let regular=0;
+    for(const e of sorted){const updated=e.updatedAt||e.date;if(e.importance!=='other'&&updated>=recent&&updated<=today&&(e.importance==='major'||regular<5)){focus.push(e);regular++}else if(e.ongoing!==false&&e.importance!=='other')ongoing.push(e);else other.push(e)}
+    return {focus,ongoing,other};
+  }
   function sparkline(history) {
     if(history.length<3)return '';
     const min=Math.min(...history.map(p=>p.value)),max=Math.max(...history.map(p=>p.value)),span=max-min||1;
@@ -36,14 +48,29 @@
     return `<div class="macro-chart"><svg viewBox="0 0 240 52" role="img" aria-label="${esc(history.map(p=>p.date+'：'+p.value).join('；'))}"><path d="M8 47H232" stroke="#dce3da" fill="none"/><polyline points="${points.map(p=>p.join(',')).join(' ')}" fill="none" stroke="#3d6a56" stroke-width="2"/>${points.map((p,i)=>`<circle cx="${p[0]}" cy="${p[1]}" r="2.5" fill="#3d6a56"><title>${esc(history[i].date+'：'+history[i].value)}</title></circle>`).join('')}</svg><div><span>${esc(history[0].date)}</span><span>${esc(history.at(-1).date)}</span></div><p class="chart-range">範圍 ${min}–${max} · ${history.length} 筆</p></div>`;
   }
   let snapshot=null, stocks=[], loading=null;
+  const selectedPaths=new Map();
   const q = selector => typeof document==='undefined'?null:document.querySelector(selector);
   function sources(ids) {return ids.map(id=>{const source=snapshot.sources.find(s=>s.id===id);return `<a href="${esc(source.url)}" target="_blank" rel="noopener noreferrer">${esc(source.title)} ↗</a>`}).join('')}
+  function eventPaths(e){return e.paths.length?e.paths:[{id:'main',title:'主要影響',horizon:'待驗證',nodes:[e.topic,'成本、需求或估值', '相關產業與公司'],summary:e.impact,question:e.next,checks:[e.next],counter:e.counter,allStocks:e.allStocks,targets:e.targets}]}
+  function renderPath(e){
+    const paths=eventPaths(e),p=paths.find(p=>p.id===selectedPaths.get(e.id))||paths[0],links=related(p,stocks);
+    return `<div class="impact-chain">${p.nodes.map((node,i)=>`${i?'<span class="impact-arrow" aria-hidden="true">→</span>':''}<div class="impact-node"><small>${['事件起點','傳導推論','可能相關產業'][i]}</small><span>${esc(node)}</span></div>`).join('')}</div><p class="path-takeaway">${esc(p.summary)}</p><details data-detail="${e.id}:company" open><summary>連到公司，還要多問一步</summary>${links.length?`<div class="event-stocks"><span>研究關聯 · 待驗證</span>${links.map(s=>`<button type="button" data-macro-stock="${esc(s.id)}">${esc(s.symbol)} ↗</button>`).join('')}</div>`:'<p class="path-unknown">尚未建立這條路徑與名單中公司的具體連結。</p>'}<p class="path-question">${esc(p.question)}</p></details><details data-detail="${e.id}:checks"><summary>接下來看什麼？</summary><ul class="path-checks">${p.checks.map(c=>`<li>${esc(c)}</li>`).join('')}</ul></details><details data-detail="${e.id}:counter"><summary>什麼會改變判斷？</summary><p class="path-question">${esc(p.counter)}</p></details>`;
+  }
+  function renderCard(e,compact=false,open=false){
+    const paths=eventPaths(e),active=paths.find(p=>p.id===selectedPaths.get(e.id))||paths[0];
+    const body=`<div class="event-fact-row"><span>已確認</span><p class="event-fact">${esc(e.fact)}</p></div><div class="path-heading"><h4>影響路徑</h4><span>公司影響待驗證</span></div>${paths.length>1?`<div class="path-picker" role="group" aria-label="${esc(e.title)}的影響路徑">${paths.map(p=>`<button type="button" data-path-event="${e.id}" data-path-id="${p.id}" aria-pressed="${p.id===active.id}">${esc(p.title)}<small>${esc(p.horizon)}</small></button>`).join('')}</div>`:''}<div class="path-content" data-path-content="${e.id}">${renderPath(e)}</div><details class="event-evidence" data-detail="${e.id}:sources"><summary>本次更新與來源</summary><p class="path-question">${esc(e.updateNote||'本次未新增事件解讀。')}</p><p class="path-unknown">原始公告 ${e.date} · 解讀更新 ${e.updatedAt}</p><div class="macro-sources">${sources(e.sourceIds)}</div></details>`;
+    const meta=`<div class="event-meta"><span>${esc(e.topic)}</span><time datetime="${e.updatedAt}">解讀更新 ${e.updatedAt}</time><span class="event-stage ${e.stage}">${esc(e.status)}</span></div>`;
+    return compact?`<details class="event-card event-compact" data-event="${e.id}" ${open?'open':''}><summary><span>${esc(e.title)}</span><small>${esc(e.topic)} · ${e.updatedAt}</small></summary><div class="event-compact-body">${meta}${body}</div></details>`:`<article class="event-card" data-event-card="${e.id}">${meta}<h3>${esc(e.title)}</h3><p class="event-one-line">${esc(e.impact)}</p>${body}</article>`;
+  }
   function renderEvents(){
     if(!snapshot||!q('#macro-events'))return;
-    const open=new Set([...q('#macro-events').querySelectorAll('details[open]')].map(d=>d.dataset.event));
+    const area=q('#macro-events'),opened=new Map([...area.querySelectorAll('details')].map(d=>[d.dataset.detail||d.dataset.event||d.id,d.open]));
     const events=filter(snapshot.events,{topic:q('#event-topic').value,onlyRelated:q('#event-related').checked,stocks});
     q('#events-empty').hidden=!!events.length;
-    q('#macro-events').innerHTML=events.slice().sort((a,b)=>b.date.localeCompare(a.date)).map(e=>{const links=related(e,stocks);return `<article class="event-card"><div class="event-meta"><span>${esc(e.topic)}</span><time datetime="${e.date}">${e.date}</time><span class="event-stage ${e.stage}">${esc(e.status)}</span></div><h3>${esc(e.title)}</h3><p class="event-fact">${esc(e.fact)}</p><div class="event-impact"><small>可能的傳導路徑 · 推論</small><p>${esc(e.impact)}</p></div>${links.length?`<div class="event-stocks"><span>研究關聯</span>${links.map(s=>`<button type="button" data-macro-stock="${esc(s.id)}">${esc(s.symbol)} ↗</button>`).join('')}</div>`:''}<details data-event="${e.id}" ${open.has(e.id)?'open':''}><summary>反方、下一步與來源</summary><div class="event-followup"><div><h4>不能直接推論什麼</h4><p>${esc(e.counter)}</p></div><div><h4>接下來驗證</h4><p>${esc(e.next)}</p></div></div><div class="macro-sources">${sources(e.sourceIds)}</div></details></article>`}).join('');
+    const groups=groupEvents(events,{stocks});
+    area.innerHTML=`<section class="event-group" aria-labelledby="focus-heading"><div class="event-group-title"><h3 id="focus-heading">今日重點</h3><span>${groups.focus.length} 則</span></div>${groups.focus.length?groups.focus.map(e=>renderCard(e)).join(''):'<p class="event-group-empty">目前沒有最近三天新增或更新的重點；未結束的事件見下方。</p>'}</section>${groups.ongoing.length?`<section class="event-group" aria-labelledby="ongoing-heading"><div class="event-group-title"><h3 id="ongoing-heading">持續追蹤</h3><span>${groups.ongoing.length} 則</span></div>${groups.ongoing.map(e=>renderCard(e,true,opened.get(e.id))).join('')}</section>`:''}${groups.other.length?`<details id="other-events" class="other-events" ${opened.get('other-events')?'open':''}><summary>其他事件 <span>${groups.other.length} 則</span></summary><div>${groups.other.map(e=>renderCard(e,true,opened.get(e.id))).join('')}</div></details>`:''}`;
+    area.querySelectorAll('details').forEach(d=>{const id=d.dataset.detail||d.dataset.event||d.id;if(opened.has(id))d.open=opened.get(id)});
+    q('#macro-analysis-updated').textContent='事件解讀更新 '+(snapshot.eventsReviewedAt||snapshot.checkedAt);
   }
   function renderIndicators(){
     const stale=(Date.now()-Date.parse(snapshot.checkedAt+'T00:00:00+08:00'))/86400000>7;
@@ -68,7 +95,7 @@
   function setStocks(nextStocks){stocks=nextStocks;renderEvents()}
   if(q('#macro-refresh')){
     q('#macro-refresh').onclick=()=>load();q('#event-topic').onchange=renderEvents;q('#event-related').onchange=renderEvents;
-    q('#macro-events').onclick=event=>{const button=event.target.closest('[data-macro-stock]');if(button)q('#macro-content').dispatchEvent(new CustomEvent('stockfolio:open-stock',{detail:button.dataset.macroStock}))};
+    q('#macro-events').onclick=event=>{const path=event.target.closest('[data-path-event]');if(path){const e=snapshot.events.find(e=>e.id===path.dataset.pathEvent);if(!e)return;selectedPaths.set(e.id,path.dataset.pathId);const card=path.closest('.event-card');card.querySelectorAll('[data-path-id]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.pathId===path.dataset.pathId)));card.querySelector('[data-path-content]').innerHTML=renderPath(e);return}const button=event.target.closest('[data-macro-stock]');if(button)q('#macro-content').dispatchEvent(new CustomEvent('stockfolio:open-stock',{detail:button.dataset.macroStock}))};
   }
-  globalThis.StockfolioMacro=Object.freeze({validate,related,filter,sparkline,load,setStocks});
+  globalThis.StockfolioMacro=Object.freeze({validate,related,filter,groupEvents,sparkline,load,setStocks});
 })();
