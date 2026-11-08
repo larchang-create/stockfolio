@@ -1,3 +1,4 @@
+import {PUBLIC_CRON,runPublicCycle,refreshStock,publicStatus,publicMacro,publicStocks} from './public-data.mjs';
 import {ServiceError,validateInput} from './research.mjs';
 export {collectSources,validateInput,validateReport,researchCompany} from './research.mjs';
 import {researchConfig,checkResearch,runCompanyResearch} from './research-service.mjs';
@@ -36,7 +37,7 @@ export async function writeState(db,owner,body){
  if(!result[0].results.length)return {conflict:true,...await readState(db,owner)};
  return {revision:body.revision+1,updatedAt:date};
 }
-export default {async fetch(request,env){
+export default {async scheduled(controller,env){return runPublicCycle(env,{now:new Date(controller.scheduledTime||Date.now()),trigger:'cron'})},async fetch(request,env,ctx){
  const url=new URL(request.url),reply=(data,status=200,headers={})=>Response.json(data,{status,headers:{'Cache-Control':'no-store','X-Content-Type-Options':'nosniff',...headers}});
  const asset=async path=>{
   if(!env.ASSETS)fail('網站檔案尚未部署。',503);
@@ -56,6 +57,18 @@ export default {async fetch(request,env){
    throw e;
   }
   if(url.pathname==='/api/session'&&request.method==='GET')return reply({accountId:owner,label:'我的個人資料',syncReady:!!env.DB,analysisReady:researchConfig(env).configured,researchModel:researchConfig(env).model});
+  if(url.pathname==='/api/public-data/status'&&request.method==='GET')return reply(await publicStatus(env));
+  if(url.pathname==='/api/public-data/macro'&&request.method==='GET')return reply(await publicMacro(env));
+  if(url.pathname==='/api/public-data/stocks'&&request.method==='GET')return reply(await publicStocks(env));
+  if(url.pathname==='/api/public-data/refresh'&&request.method==='POST'){
+   const raw=await request.text();if(raw.length>2048)fail('請求過大。',413);
+   let body;try{body=JSON.parse(raw)}catch{fail('資料格式不正確。',400)}
+   if(body.scope==='stock')return reply(await refreshStock(env,validateInput(body),{force:true}));
+   if(body.scope!=='cycle')fail('請選擇有效的更新方式。',400);
+   const task=runPublicCycle(env);
+   if(ctx?.waitUntil){ctx.waitUntil(task.catch(()=>console.error('Public data cycle failed; source status retained.')));return reply({accepted:true,cron:PUBLIC_CRON},202)}
+   return reply(await task);
+  }
   if(url.pathname==='/api/state'){
    await initializeDB(env.DB);
    if(request.method==='GET')return reply(await readState(env.DB,owner));

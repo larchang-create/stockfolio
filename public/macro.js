@@ -23,7 +23,9 @@
       const targets=x.targets.map(t=>{if(!['台股','美股'].includes(t.market)||typeof t.symbol!=='string'||!(t.market==='台股'?/^[0-9]{4,6}[A-Z]?$/:/^[A-Z][A-Z0-9.-]{0,19}$/).test(t.symbol))fail();return {market:t.market,symbol:t.symbol}});
       return {id:key(x.id),title:text(x.title,200),topic:x.topic,stage:x.stage,status:text(x.status,100),date:date(x.date,checkedAt),fact:text(x.fact),impact:text(x.impact),counter:text(x.counter),next:text(x.next),allStocks:x.allStocks,targets,sourceIds:refs(x.sourceIds)};
     });
-    return {schemaVersion:1,checkedAt,sources,indicators,events};
+    const sync=raw.sync&&raw.sync.enabled===true?{...raw.sync,sources:Array.isArray(raw.sync.sources)?raw.sync.sources:[]}:null;
+    const announcements=Array.isArray(raw.announcements)?raw.announcements.filter(n=>n&&typeof n.title==='string'&&typeof n.date==='string'&&Number.isFinite(Date.parse(n.date))&&Date.parse(n.date)<=now.getTime()).map(n=>{let url;try{url=new URL(n.url)}catch{return null}return url.protocol==='https:'&&!url.username&&!url.password?{title:n.title.slice(0,300),url:url.href,date:n.date,source:String(n.source||'官方公告').slice(0,100)}:null}).filter(Boolean).slice(0,40):[];
+    return {schemaVersion:1,checkedAt,sources,indicators,events,sync,announcements};
   }
   function related(event, stocks) {return stocks.filter(s=>s.watch && (event.allStocks || event.targets.some(t=>t.market===s.market&&t.symbol===s.symbol)))}
   function filter(events,{topic='all',onlyRelated=false,stocks=[]}={}) {return events.filter(e=>(topic==='all'||e.topic===topic)&&(!onlyRelated||related(e,stocks).length))}
@@ -45,14 +47,18 @@
   }
   function renderIndicators(){
     const stale=(Date.now()-Date.parse(snapshot.checkedAt+'T00:00:00+08:00'))/86400000>7;
-    q('#macro-updated').textContent=`查核 ${snapshot.checkedAt} · 已發布快照${stale?' · 查核已逾 7 天':''}`;
-    q('#macro-indicators').innerHTML=snapshot.indicators.map(x=>`<article class="indicator-card"><div class="indicator-label"><h3>${esc(x.title)}</h3><span>${esc(x.period)}</span></div><div class="indicator-value">${esc(x.value)}<small>${esc(x.unit)}</small></div><p class="indicator-comparison">${esc(x.comparison)}</p>${sparkline(x.history)}<details><summary>解讀與來源</summary><p class="indicator-reading">推論：${esc(x.interpretation)}</p><p class="indicator-release">資料期末 ${x.periodEnd}<br>發布 ${x.publishedAt}</p>${x.history.length?`<table class="history-table"><caption>本次收錄資料（${esc(x.unit)}）</caption><thead><tr><th>期間</th><th>數值</th></tr></thead><tbody>${x.history.map(p=>`<tr><td>${p.date}</td><td>${p.value}</td></tr>`).join('')}</tbody></table>`:''}<div class="macro-sources">${sources(x.sourceIds)}</div></details></article>`).join('');
+    q('#macro-updated').textContent=snapshot.sync?(snapshot.sync.lastRun?'最後檢查 '+new Date(snapshot.sync.lastRun).toLocaleString('zh-TW',{timeZone:'Asia/Taipei'})+' · 分批自動更新':'排程每 15 分鐘檢查 · 等待首次執行'):`查核 ${snapshot.checkedAt} · 已發布快照${stale?' · 查核已逾 7 天':''}`;
+    if(q('#public-sync-state')){q('#public-sync-state').hidden=!snapshot.sync;if(snapshot.sync){const info=snapshot.sync;q('#public-sync-state-body').textContent=info.schedule+'。最近排程執行：'+(info.lastCronRun?new Date(info.lastCronRun).toLocaleString('zh-TW',{timeZone:'Asia/Taipei'}):'等待首次排程；手動檢查不代表排程已執行')+'。';q('#public-source-states').innerHTML=info.sources.map(s=>`<li><strong>${esc(s.label)}</strong><span>${esc(({ok:'已檢查',error:'更新失敗・保留舊資料',pending:'待首次檢查'})[s.state]||s.state)}</span>${s.last_success?`<small>最近成功 ${esc(new Date(s.last_success).toLocaleString('zh-TW',{timeZone:'Asia/Taipei'}))}</small>`:''}${s.error?`<small>${esc(s.error)}</small>`:''}</li>`).join('')}}
+    if(q('#official-news')){q('#official-news').hidden=!snapshot.sync;q('#official-news-list').innerHTML=snapshot.announcements.length?snapshot.announcements.map(n=>`<article><div><span>${esc(n.source)}</span><time>${esc(new Date(n.date).toLocaleString('zh-TW',{timeZone:'Asia/Taipei'}))}</time></div><a href="${esc(n.url)}" target="_blank" rel="noopener noreferrer">${esc(n.title)} ↗</a></article>`).join(''):'<p class="news-empty">等待官方公告來源首次檢查。</p>'}
+
+    q('#macro-indicators').innerHTML=snapshot.indicators.map(x=>`<article class="indicator-card"><div class="indicator-label"><h3>${esc(x.title)}</h3><span>${esc(x.period)}</span></div><div class="indicator-value">${esc(x.value)}<small>${esc(x.unit)}</small></div><p class="indicator-comparison">${esc(x.comparison)}</p>${sparkline(x.history)}${snapshot.sync?`<p class="indicator-source-state">${esc(indicatorSourceState(x))}</p>`:''}<details><summary>解讀與來源</summary><p class="indicator-reading">推論：${esc(x.interpretation)}</p><p class="indicator-release">資料期末 ${x.periodEnd}<br>發布 ${x.publishedAt}</p>${x.history.length?`<table class="history-table"><caption>本次收錄資料（${esc(x.unit)}）</caption><thead><tr><th>期間</th><th>數值</th></tr></thead><tbody>${x.history.map(p=>`<tr><td>${p.date}</td><td>${p.value}</td></tr>`).join('')}</tbody></table>`:''}<div class="macro-sources">${sources(x.sourceIds)}</div></details></article>`).join('');
   }
+  function indicatorSourceState(indicator){const map={fed:'fed',cpi:'cpi',jobs:'employment',fx:'fx',exports:'exports'};const source=snapshot.sync?.sources.find(s=>s.id===map[indicator.sourceIds[0]]);return source?.state==='error'?'更新失敗・保留原資料':source?.state==='ok'?'官方來源已檢查':'待首次自動檢查'}
   async function load(nextStocks=stocks){
     stocks=nextStocks;if(loading)return loading;
     q('#macro-refresh').disabled=true;q('#macro-error').hidden=true;
     loading=(async()=>{try{
-      const response=await fetch('macro-data.json',{credentials:'same-origin',cache:'no-store',signal:AbortSignal.timeout(20000)});
+      const response=await fetch((['localhost','127.0.0.1',''].includes(location.hostname)||location.hostname.endsWith('github.io'))?'macro-data.json':'/api/public-data/macro',{credentials:'same-origin',cache:'no-store',signal:AbortSignal.timeout(20000)});
       if(!response.ok)throw Error(response.status===401?'登入已過期，請重新登入。':'暫時無法載入總經資料。');
       const body=await response.text();if(body.length>300000)fail();
       const data=validate(JSON.parse(body));snapshot=data;renderIndicators();renderEvents();
