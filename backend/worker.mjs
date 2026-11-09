@@ -89,6 +89,17 @@ export default {async scheduled(controller,env){return runPublicCycle(env,{now:n
     if(Number(request.headers.get('Content-Length')||0)>6000000)fail('資料過大。',413);
     const text=await request.text();if(encoder.encode(text).length>6000000)fail('資料過大。',413);
     let body;try{body=JSON.parse(text)}catch{fail('資料格式不正確。',400)}
+    validateStocks(body.stocks);
+    const current=await readState(env.DB,owner);
+    if(body.revision===current.revision){
+     const known=new Set(current.stocks.filter(s=>s.watch).map(s=>s.market+':'+s.symbol));
+     const added=body.stocks.filter(s=>s.market==='台股'&&s.watch&&!known.has(s.market+':'+s.symbol)).map(s=>s.symbol);
+     for(let offset=0;offset<added.length;offset+=200){
+      const check=await validateTaiwanSymbols(env,added.slice(offset,offset+200));
+      if(check.invalid.length)fail('查不到台股代號：'+check.invalid.join('、')+'，尚未儲存。',422);
+      if(check.unverified.length)fail('官方清單暫時無法確認台股代號，請稍後再同步。',503);
+     }
+    }
     const result=await writeState(env.DB,owner,body);return reply(result,result.conflict?409:200);
    }
    return reply({error:'不支援此操作。'},405);

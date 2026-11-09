@@ -100,6 +100,12 @@ try{
  await evaluate(guest,"window.confirm=()=>true;document.querySelector('#remote-devices button').click();true");await wait(guest,"document.querySelector('#remote-message').textContent.includes('已撤銷')");
  assert.equal(await evaluate(guest,`fetch('/api/remote/work',{credentials:'omit',headers:{Authorization:'Bearer '+${JSON.stringify(remoteToken)}}}).then(r=>r.status)`),401);
  console.log('PASS website approval survives login redirect; remote bearer has scoped access and revocation takes effect');
+ await evaluate(a,"setView('tw');document.querySelector('#add').click();document.querySelector('#quick-symbol').value='2330,2300';window.savedCatalogFetch=window.fetch;window.fetch=(url,opts)=>String(url)==='/api/symbols/validate'?Promise.resolve(Response.json({valid:[{symbol:'2330',name:'台積電'}],invalid:['2300'],unverified:[]})):window.savedCatalogFetch(url,opts);document.querySelector('#quick-form').requestSubmit();true");
+ await wait(a,"document.querySelector('#quick-error').textContent.includes('查不到台股代號：2300')");
+ assert.equal(await evaluate(a,"stocks.some(s=>s.market==='台股'&&(s.symbol==='2300'||s.symbol==='2330'))"),false);
+ await evaluate(a,"window.fetch=window.savedCatalogFetch;delete window.savedCatalogFetch;document.querySelector('#quick-cancel').click();true");
+ console.log('PASS an invalid Taiwan ticker blocks the whole batch and leaves the watchlist unchanged');
+
 }catch(e){console.error(e.message);console.error(logs.slice(-3000));process.exitCode=1}finally{
  for(const item of pending.values())item.reject(Error('Test finished'));pending.clear();browser?.kill();if(worker)try{process.kill(-worker.pid,'SIGTERM')}catch{}await sleep(200);await rm(tmp,{recursive:true,force:true});
 }
