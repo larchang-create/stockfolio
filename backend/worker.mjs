@@ -1,4 +1,5 @@
 import {exchangeRequest,exchangeOwner} from './exchange.mjs';
+import {validateTaiwanSymbols} from './symbols.mjs';
 import {PUBLIC_CRON,runPublicCycle,refreshStock,publicStatus,publicMacro,publicStocks} from './public-data.mjs';
 import {remoteMachine,remoteOwner} from './remote-research.mjs';
 import {ServiceError,validateInput} from './research.mjs';
@@ -67,6 +68,11 @@ export default {async scheduled(controller,env){return runPublicCycle(env,{now:n
   if(url.pathname==='/api/public-data/status'&&request.method==='GET')return reply(await publicStatus(env));
   if(url.pathname==='/api/public-data/macro'&&request.method==='GET')return reply(await publicMacro(env));
   if(url.pathname==='/api/public-data/stocks'&&request.method==='GET')return reply(await publicStocks(env));
+  if(url.pathname==='/api/symbols/validate'&&request.method==='POST'){
+   const raw=await request.text();if(raw.length>4096)fail('一次最多檢查 200 個代號。',413);
+   let body;try{body=JSON.parse(raw)}catch{fail('代號格式不正確。',400)}
+   return reply(await validateTaiwanSymbols(env,body.symbols));
+  }
   if(url.pathname==='/api/public-data/refresh'&&request.method==='POST'){
    const raw=await request.text();if(raw.length>2048)fail('請求過大。',413);
    let body;try{body=JSON.parse(raw)}catch{fail('資料格式不正確。',400)}

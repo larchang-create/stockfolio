@@ -1,5 +1,6 @@
 import pinnedJWKS from '../exchange/github-jwks.json' with {type:'json'};
 import config from '../exchange/config.json' with {type:'json'};
+import {validateTaiwanSymbols} from './symbols.mjs';
 import {initializePublicDB,publicStocks} from './public-data.mjs';
 import {ServiceError,validateReport} from './research.mjs';
 import {seal,unseal,decode,digest} from '../exchange/crypto.mjs';
@@ -29,6 +30,23 @@ export async function acceptExchangeResults(env,box,now=new Date()){
  const key=await crypto.subtle.importKey('jwk',config.signer,{name:'Ed25519'},false,['verify']);if(!await crypto.subtle.verify('Ed25519',key,decode(signed.signature),enc.encode(signed.payload)))fail('研究結果簽章無效');
  const data=JSON.parse(signed.payload),issued=Date.parse(data.generatedAt);if(data.schemaVersion!==1||!Number.isFinite(issued)||issued>now.getTime()+30000||issued<now.getTime()-86400000||!Array.isArray(data.reports)||data.reports.length>200)fail('研究結果期限或數量無效',400);
  const result=[];
+ // Corrections require the same signed, encrypted owner request and the exact
+ // original record. A research model cannot rename a watchlist entry.
+ if(data.corrections!==undefined){
+  if(!Array.isArray(data.corrections)||data.corrections.length>10)fail('代號更正格式無效',400);
+  for(const item of data.corrections){
+   if(item.market!=='台股'||!/^\d{4,6}[A-Z]?$/.test(item.from)||!/^\d{4,6}[A-Z]?$/.test(item.to)||item.from===item.to)fail('代號更正格式無效',400);
+   const oldKey=item.market+':'+item.from,newKey=item.market+':'+item.to,[row]=await query(env.DB,"SELECT data_json FROM sync_stocks WHERE owner_id='personal' AND stock_key=?",oldKey);
+   if(!row){result.push({symbol:item.to,state:'correction_already_applied'});continue}
+   const stock=JSON.parse(row.data_json),note=typeof stock.research?.thesis==='string'?stock.research.thesis.slice(0,5000):'';
+   if(stock.id!==item.id||await digest(note)!==item.noteDigest||stock.analysis){result.push({symbol:item.from,state:'correction_conflict'});continue}
+   const check=await validateTaiwanSymbols(env,[item.to]);if(!check.valid.length)fail('更正後的代號無法由官方清單確認',400);
+   const mutation=crypto.randomUUID();const changed=await env.DB.batch([
+    env.DB.prepare("UPDATE sync_stocks SET stock_key=?,data_json=json_set(data_json,'$.symbol',?,'$.name',CASE WHEN json_extract(data_json,'$.name')= ? THEN ? ELSE json_extract(data_json,'$.name') END) WHERE owner_id='personal' AND stock_key=? AND data_json=? AND NOT EXISTS(SELECT 1 FROM sync_stocks WHERE owner_id='personal' AND stock_key=?) RETURNING stock_key").bind(newKey,item.to,item.from,check.valid[0].name,oldKey,row.data_json,newKey),
+    env.DB.prepare("UPDATE sync_accounts SET revision=revision+1,mutation_id=?,updated_at=? WHERE owner_id='personal' AND changes()>0").bind(mutation,now.toISOString())
+   ]);result.push({symbol:item.to,state:changed[0].results.length?'corrected':'correction_conflict'});
+  }
+ }
  for(const item of data.reports){
   const [row]=await query(env.DB,"SELECT data_json FROM sync_stocks WHERE owner_id='personal' AND stock_key=? AND json_extract(data_json,'$.watch')=1",item.market+':'+item.symbol);if(!row){result.push({symbol:item.symbol,state:'not_watched'});continue}const stock=JSON.parse(row.data_json),note=typeof stock.research?.thesis==='string'?stock.research.thesis.slice(0,5000):'';
   if(stock.id!==item.id||await digest(note)!==item.noteDigest){result.push({symbol:item.symbol,state:'note_changed'});continue}
