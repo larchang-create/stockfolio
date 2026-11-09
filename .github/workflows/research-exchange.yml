@@ -1,0 +1,29 @@
+name: Private research exchange
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '7,22,37,52 * * * *'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/research-exchange.yml'
+      - 'backend/exchange.mjs'
+      - 'exchange/**'
+      - 'scripts/research-exchange.mjs'
+permissions:
+  contents: write
+  id-token: write
+concurrency:
+  group: stockfolio-private-research-exchange
+  cancel-in-progress: false
+jobs:
+  exchange:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Exchange encrypted data with the personal website
+        run: node scripts/research-exchange.mjs

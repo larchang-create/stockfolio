@@ -1,3 +1,4 @@
+import {exchangeStatus} from './exchange.mjs';
 // A remote worker may read public evidence for watched tickers and replace only analysis.
 // The owner authorizes only the selected company's research note as additional context.
 // General watchlist notes, legacy worksheet sections and the website password remain private.
@@ -37,7 +38,7 @@ export async function remoteStatus(env,now=new Date()){
  const devices=await query(env.DB,'SELECT id,label,created_at,expires_at,revoked_at,last_seen FROM remote_devices ORDER BY created_at DESC'),jobs=await query(env.DB,'SELECT stock_key,state,started_at,error FROM remote_jobs ORDER BY started_at DESC LIMIT 30'),reports=await query(env.DB,'SELECT stock_key,fingerprint,completed_at FROM remote_reports ORDER BY completed_at DESC');
  const current=await evidence(env,now),watched=await query(env.DB,"SELECT stock_key,json_extract(data_json,'$.analysis.generatedAt') AS generated_at FROM sync_stocks WHERE owner_id='personal' AND json_extract(data_json,'$.watch')=1");
  const active=devices.filter(d=>!d.revoked_at&&d.expires_at>seconds(now));
- return {devices,jobs,reports:reports.map(({fingerprint,...r})=>r).slice(0,30),pollMinutes:15,deviceAuthorized:active.length>0,deviceOnline:active.some(d=>d.last_seen&&Date.parse(d.last_seen)>=now.getTime()-30*60000),stocks:watched.map(s=>{const candidate=current.candidates.find(c=>c.key===s.stock_key),previous=reports.find(r=>r.stock_key===s.stock_key);return {key:s.stock_key,waitingForPublicData:!candidate,pending:!!candidate&&candidate.fingerprint!==previous?.fingerprint,hasReport:!!s.generated_at,job:jobs.find(j=>j.stock_key===s.stock_key)||null,lastCompleted:previous?.completed_at||s.generated_at||null}})};
+ return {exchange:await exchangeStatus(env),devices,jobs,reports:reports.map(({fingerprint,...r})=>r).slice(0,30),pollMinutes:15,deviceAuthorized:active.length>0,deviceOnline:active.some(d=>d.last_seen&&Date.parse(d.last_seen)>=now.getTime()-30*60000),stocks:watched.map(s=>{const candidate=current.candidates.find(c=>c.key===s.stock_key),previous=reports.find(r=>r.stock_key===s.stock_key);return {key:s.stock_key,waitingForPublicData:!candidate,pending:!!candidate&&candidate.fingerprint!==previous?.fingerprint,hasReport:!!s.generated_at,job:jobs.find(j=>j.stock_key===s.stock_key)||null,lastCompleted:previous?.completed_at||s.generated_at||null}})};
 }
 // These routes establish a device connection or require a device bearer, not a browser session.
 export async function remoteMachine(request,env,{now=new Date()}={}){

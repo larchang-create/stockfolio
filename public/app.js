@@ -82,7 +82,8 @@ function renderBackgroundStatus(stock){
  if(!backgroundResearch){host.textContent=backgroundError?'暫時無法確認遠端研究狀態；筆記仍可儲存。':'正在確認遠端研究狀態…';return}
  const entry=backgroundResearch.stocks?.find(s=>s.key===stock.market+':'+stock.symbol);
  let message;
- if(!entry)message='這家公司未加入觀察清單；加入後才會排入背景研究。';
+ if(backgroundResearch.exchange?.enabled&&backgroundResearch.exchange.lastExport){message=entry?.pending?'名單與筆記已加密同步，等待研究結果。':entry?.hasReport?'研究結果已更新並同步。':'名單已加密同步，等待首次研究。';}
+ else if(!entry)message='這家公司未加入觀察清單；加入後才會排入背景研究。';
  else if(!backgroundResearch.deviceAuthorized)message='遠端研究尚未完成授權；筆記會保留並同步。';
  else if(!backgroundResearch.deviceOnline)message='遠端研究目前未連線；筆記會保留，連線恢復後再處理。';
  else if(entry?.job?.state==='running')message='這家公司正在研究中；結果完成後會自動同步。';

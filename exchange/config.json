@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "repository": "larchang-create/stockfolio",
+  "workflow": "research-exchange.yml",
+  "site": "https://stockfolio.larry17342.workers.dev",
+  "snapshotBranch": "stockfolio-research-data",
+  "recipient": {
+    "kty": "EC",
+    "x": "poM9-UjwBtEFI6RdgcyyroukSKJpHjyl61qCFnJet5U",
+    "y": "Nwhv0x4jFJNlAxTzw2QpVxHnUBvMp_0jNBWKeyTYmtA",
+    "crv": "P-256"
+  },
+  "signer": {
+    "crv": "Ed25519",
+    "x": "e9yy3Gqs0ksDKnMvo2g6jsqLKfd_5DEx-VJg2Um48_g",
+    "kty": "OKP"
+  },
+  "repositoryId": "1441783282"
+}
