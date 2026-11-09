@@ -2,6 +2,7 @@ import {digest} from '../exchange/crypto.mjs';
 import {readFile,writeFile,mkdir} from 'node:fs/promises';
 import {execFileSync} from 'node:child_process';
 import config from '../exchange/config.json' with {type:'json'};
+if(config.paused){console.log('Private exchange paused pending owner confirmation.');process.exit(0)}
 const tokenUrl=new URL(process.env.ACTIONS_ID_TOKEN_REQUEST_URL);tokenUrl.searchParams.set('audience',config.site+'/research-exchange');
 const identity=await fetch(tokenUrl,{headers:{Authorization:'Bearer '+process.env.ACTIONS_ID_TOKEN_REQUEST_TOKEN},signal:AbortSignal.timeout(15000)});if(!identity.ok)throw Error('無法建立工作身分');const {value:token}=await identity.json();
 async function call(path,body){const r=await fetch(config.site+'/api/exchange/'+path,{method:'POST',headers:{Origin:config.site,Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify(body||{}),redirect:'error',signal:AbortSignal.timeout(45000)});if(!r.ok){const error=await r.json().catch(()=>({}));throw Error('Exchange '+path+' HTTP '+r.status+' '+String(error.error||'').slice(0,180))}const box=await r.json();if(box.version!==1||!box.ciphertext)throw Error('未取得加密交換資料');return box}
