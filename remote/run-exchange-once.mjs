@@ -4,7 +4,7 @@ import config from '../exchange/config.json' with {type:'json'};
 import {unseal,seal,encode,digest} from '../exchange/crypto.mjs';
 import {codexAnalyze} from './native-codex.mjs';
 const dir=resolve('remote-state'),keys=JSON.parse(await readFile(join(dir,'exchange-keys.json'),'utf8')),statusFile=join(dir,'exchange-status.json'),reportsDir=join(dir,'exchange-reports');await mkdir(reportsDir,{recursive:true,mode:0o700});
-const r=await fetch('https://raw.githubusercontent.com/'+config.repository+'/'+config.snapshotBranch+'/snapshot.json?run='+Date.now(),{signal:AbortSignal.timeout(20000)});if(!r.ok)throw Error('尚未取得加密名單，HTTP '+r.status);
+const r=await fetch('https://raw.githubusercontent.com/'+config.repository+'/'+encodeURIComponent(process.env.STOCKFOLIO_SNAPSHOT_REF||config.snapshotBranch)+'/snapshot.json?run='+Date.now(),{signal:AbortSignal.timeout(20000)});if(!r.ok)throw Error('尚未取得加密名單，HTTP '+r.status);
 const snapshot=await unseal(await r.json(),keys.decryptPrivate,'snapshot');await writeFile(join(dir,'exchange-snapshot.json'),JSON.stringify(snapshot),{mode:0o600});
 const status={pid:process.pid,startedAt:new Date().toISOString(),phase:'researching',current:null,total:snapshot.stocks.length,completed:[],failed:[]};const results=[];
 async function save(){await writeFile(statusFile,JSON.stringify(status),{mode:0o600})}

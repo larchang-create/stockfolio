@@ -1,3 +1,17 @@
+# 最新階段 2026-11-09：已讀取真實名單，開始加密寫回研究
+
+- 使用者明確同意將觀察名單、公司研究筆記及研究結果，加密後放入自己的公開 GitHub 倉庫 larchang-create/stockfolio 中轉；密鑰只保留於個人 Omni 與 Cloudflare。公開 Git 歷史會保留密文。不得把密鑰、remote-state/ 或明文筆記放入倉庫或移交壓縮檔。
+- 直接 Omni → workers.dev 仍 ECONNRESET。新增 GitHub OIDC 工作身分交換：只允許本倉庫 ID、main、指定 workflow、指定 audience，驗證 RSA 簽章與期限；Cloudflare 與 Omni 使用 P256 ECDH/HKDF/AES-GCM 交換，報告另以 Ed25519 簽章。GitHub Actions 不處理明文私人資料，也不持有研究模型憑證。
+- 真實加密快照已取得 16 檔觀察標的。只傳目前公司的 research.thesis，不傳一般 notes 或舊 sections。研究以既有個人 Omni Codex 登入與官方公開搜尋執行，不新增付費模型 API。
+- 2026-11-09T05:53:13Z 加密回執與新快照已確認第一批五份研究實際寫入正式 D1；後續報告仍在逐一產生。不能把本機檔案或上傳密文當作已完成網站寫回，需核對 receipt 與新的 snapshot。
+- 使用者確認誤植後，透過同一簽章加密信封進行特定代號更正；限定 exact id、筆記 hash、原始資料未變、無既有研究且目標不存在，官方確認目標後才原子更正 key／symbol，保留筆記與 ID。模型輸出不含更正指令。
+- 台股新增前核對上市／上櫃公司名冊與報價清單，保留 ETF 前導零與字母尾碼；每來源六小時快取。官方來源不完整時列無法確認，不誤稱查無。整批有錯即不新增；同步 PUT 對新加入／恢復觀察的台股也檢查，既有股票改筆記不需重新核對代號。
+- 交換先確認網站 protocolVersion=2 再送 outbox，避免舊 Worker 尚在部署時忽略新動作；送出後重新取得 snapshot。
+- ETF 六題改為基金規則、報酬來源、追蹤與配息品質、費用與集中度、價格與淨值、失效條件。無法確認的代號不套用其他公司。
+- 目前自動交換 workflow 每 15 分鐘啟動；本機研究批次可讀取快照及產生加密 outbox，但 Omni 尚無 GitHub 寫入憑證。目前由本對話的 GitHub 連接發布 outbox。因此不能宣稱未來全天候研究寫回已全部自動完成。舊直接連線 runner 仍不可用。
+- exchange/github-jwks.json 是官方公開 GitHub RSA keys 的短期備援，只有七天效期；仍驗證 OIDC 簽章，過期失敗關閉，不信任 token 自帶 key。正式連線正常時優先取得官方即時 JWKS。
+- 驗證：全部 Node 測試檔案通過；真實 Chrome + 本機 Worker/D1 驗證兩裝置研究與筆記同步、重新整理保留、刪除、重複合併、手機版面及受限機器授權。
+
 # 最新階段 2026-11-08：簡化公司筆記，研究每十五分鐘檢查變更
 
 - 使用者明確授權將目前公司的研究筆記帶入背景研究。研究院改為單一 research.thesis 輸入框，800ms 自動儲存；依公司切換並跨裝置同步。保留舊版 research.sections，簡化介面不清除既有資料。
