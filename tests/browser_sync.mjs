@@ -61,7 +61,7 @@ try{
  assert.equal(await evaluate(a,"document.querySelector('[data-path-id=tech]').getAttribute('aria-pressed')"),'true');
  await evaluate(a,"StockfolioMacro.setStocks(stocks);true");
  assert.equal(await evaluate(a,"document.querySelector('[data-path-id=tech]').getAttribute('aria-pressed')"),'true');
- await evaluate(a,"const checks=document.querySelector('[data-detail=\"middle-east-energy:checks\"]');checks.open=true;true");
+ await evaluate(a,"const checks=document.querySelector('[data-detail=\"middle-east-energy:checks\"]');for(let p=checks;p;p=p.parentElement)if(p.tagName==='DETAILS')p.open=true;true");
  assert.ok(await evaluate(a,"document.querySelector('[data-detail=\"middle-east-energy:checks\"]').innerText.includes('能源成本')"));
  assert.equal(await evaluate(a,"document.querySelector('#other-events').open"),false);
  assert.equal(await evaluate(a,"document.querySelector('.macro-supporting').open"),false);
@@ -86,7 +86,7 @@ try{
  await wait(a,"!researchDirty && document.querySelector('#sync-status').textContent==='已同步'");
  await evaluate(a,"document.querySelector('#research-stock').value=stocks.find(s=>s.symbol==='MSFT').id;document.querySelector('#research-stock').dispatchEvent(new Event('change'));true");
  assert.equal(await evaluate(a,"document.querySelector('#research-thesis').value"),'Does recurring revenue protect MSFT margins?');
- await evaluate(a,'refreshBackgroundResearch()');await wait(a,"document.querySelector('#research-background-status').textContent.includes('尚未完成授權')");
+ await evaluate(a,'refreshBackgroundResearch()');await wait(a,"document.querySelector('#research-background-status').textContent.includes('自動研究尚未接通')");
  console.log('PASS single company note autosaves, synchronizes, preserves legacy fields, switches independently and shows real remote status');
  const remoteToken=randomBytes(32).toString('base64url'),remoteHash=createHash('sha256').update(remoteToken).digest('hex');
  const guestContext=await cdp('Target.createBrowserContext'),guestTarget=await cdp('Target.createTarget',{url:origin+'/remote-connect?key='+remoteHash,browserContextId:guestContext.browserContextId});
