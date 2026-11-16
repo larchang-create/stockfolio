@@ -1,8 +1,8 @@
 import {spawn} from 'node:child_process';
 import {readFile} from 'node:fs/promises';
 import config from '../exchange/config.json' with {type:'json'};
-export async function githubCredential(){
- return new Promise(resolve=>{const p=spawn('git',['credential','fill'],{env:{...process.env,GIT_TERMINAL_PROMPT:'0'},stdio:['pipe','pipe','pipe']});let output='';const timer=setTimeout(()=>p.kill(),10000);p.stdout.on('data',x=>{output+=x;if(output.length>32000)p.kill()});p.on('error',()=>{clearTimeout(timer);resolve(null)});p.on('close',code=>{clearTimeout(timer);const token=output.match(/^password=(.+)$/m)?.[1];resolve(code===0&&token?token:null)});p.stdin.end('protocol=https\nhost=github.com\n\n')});
+export async function githubCredential({launch=spawn}={}){
+ return new Promise(resolve=>{const p=launch('git',['credential','fill'],{env:{...process.env,GIT_TERMINAL_PROMPT:'0',GCM_INTERACTIVE:'never',GPG_TTY:process.env.GPG_TTY||'/dev/null'},stdio:['pipe','pipe','pipe']});let output='';const timer=setTimeout(()=>p.kill(),10000);p.stdout.on('data',x=>{output+=x;if(output.length>32000)p.kill()});p.on('error',()=>{clearTimeout(timer);resolve(null)});p.on('close',code=>{clearTimeout(timer);const token=output.match(/^password=(.+)$/m)?.[1];resolve(code===0&&token?token:null)});p.stdin.end('protocol=https\nhost=github.com\n\n')});
 }
 export async function publishOutbox(token,{fetcher=fetch,file='exchange/outbox.json'}={}){
  const content=await readFile(file,'utf8'),box=JSON.parse(content);if(box.version!==1||box.purpose!=='results'||!box.ciphertext)throw Error('invalid_encrypted_outbox');
