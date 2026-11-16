@@ -10,6 +10,7 @@ on:
       - 'backend/exchange.mjs'
       - 'exchange/**'
       - 'scripts/research-exchange.mjs'
+      - 'scripts/refresh-exchange-keys.mjs'
 permissions:
   contents: write
   id-token: write
@@ -25,5 +26,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Refresh official public verification keys
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/refresh-exchange-keys.mjs
       - name: Exchange encrypted data with the personal website
         run: node scripts/research-exchange.mjs
