@@ -19,7 +19,7 @@ test('missing and oldest research are processed before recently researched stock
  const list=[{stock:{symbol:'A',analysis:fresh}},{stock:{symbol:'B',analysis:old}},{stock:{symbol:'C'}}];
  assert.deepEqual(list.sort(prioritizeResearch).map(x=>x.stock.symbol),['C','B','A']);
 });
-test('event review requires every requested stock, primary-source URLs and recent valid dates',()=>{
+test('event review requires every requested stock, traceable URLs and recent valid dates',()=>{
  const stocks=[{market:'美股',symbol:'NVDA'},{market:'台股',symbol:'0050'}],raw={stocks:[{...stocks[0],events:[{date:'2026-11-18',title:'公告',url:'https://investor.nvidia.com/news?utm_source=test',impact:'管理交接需核對'}]},{...stocks[1],events:[]}]};
  assert.equal(validateEventReview(raw,stocks,new Date(now))[0].events[0].url,'https://investor.nvidia.com/news');
  assert.throws(()=>validateEventReview({stocks:[raw.stocks[0]]},stocks,new Date(now)),/涵蓋/);

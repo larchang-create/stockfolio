@@ -92,6 +92,7 @@ function renderBackgroundStatus(stock){
  else if(entry?.job?.state==='error'&&entry.pending)message='上次研究未完成；新筆記或下一批資料將觸發重試。';
  else if(entry?.pending)message='已排入研究；每 15 分鐘檢查一次，依序處理。';
  else message='每 15 分鐘檢查變更；目前已有研究，資料與筆記未變更時沿用。';
+ if(backgroundResearch.exchange?.lastCheckErrors)message+=' 上一輪有部分查核失敗，已保留原報告並安排重試。';
  if(entry?.stale)message+=' 研究已超過七天，等待重新查核。';
  if(entry?.checkState==='error')message+=' 上次研究失敗，稍後自動重試。';
  host.replaceChildren(document.createTextNode(message));
