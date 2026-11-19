@@ -10,7 +10,7 @@ export async function publishOutbox(token,{fetcher=fetch,file='exchange/outbox.j
  const r=await fetcher(url+'?ref=main',{headers,redirect:'error',signal:AbortSignal.timeout(20000)});if(!r.ok&&r.status!==404)throw Error('github_read_http_'+r.status);const old=r.ok?await r.json():{};
  const response=await fetcher(url,{method:'PUT',headers,redirect:'error',signal:AbortSignal.timeout(25000),body:JSON.stringify({message:'Update owner-authorized encrypted research results',branch:'main',sha:old.sha,content:Buffer.from(content).toString('base64')})});if(!response.ok)throw Error('github_publish_http_'+response.status);const data=await response.json();return {commit:data.commit.sha};
 }
-export async function requestFreshSnapshot(token,{fetcher=fetch,pause=ms=>new Promise(r=>setTimeout(r,ms)),attempts=60}={}){
+async function dispatchSnapshot(token,{fetcher=fetch,pause=ms=>new Promise(r=>setTimeout(r,ms)),attempts=96}={}){
  const base='https://api.github.com/repos/'+config.repository,headers={Authorization:'Bearer '+token,Accept:'application/vnd.github+json','Content-Type':'application/json','X-GitHub-Api-Version':'2022-11-28'};
  async function call(path,options={}){const r=await fetcher(base+path,{...options,headers,redirect:'error',signal:AbortSignal.timeout(20000)});if(!r.ok)throw Error('github_exchange_http_'+r.status);return r.status===204?null:r.json()}
  const started=Date.now(),runsPath='/actions/workflows/'+config.workflow+'/runs?event=workflow_dispatch&per_page=5',before=await call(runsPath),seen=new Set(before.workflow_runs.map(r=>r.id));
@@ -23,4 +23,14 @@ export async function requestFreshSnapshot(token,{fetcher=fetch,pause=ms=>new Pr
   await pause(5000);
  }
  throw Error('exchange_workflow_timeout');
+}
+
+export async function requestFreshSnapshot(token,options={}){
+ const pause=options.pause||((ms)=>new Promise(r=>setTimeout(r,ms)));
+ for(let attempt=0;attempt<3;attempt++){
+  try{return await dispatchSnapshot(token,options)}catch(error){
+   if(attempt===2||/http_(?:401|403|404|422)/.test(error.message))throw error;
+   await pause(15000*2**attempt);
+  }
+ }
 }

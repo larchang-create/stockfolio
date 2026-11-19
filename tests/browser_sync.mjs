@@ -105,6 +105,19 @@ try{
  assert.equal(await evaluate(a,"stocks.some(s=>s.market==='台股'&&(s.symbol==='2300'||s.symbol==='2330'))"),false);
  await evaluate(a,"window.fetch=window.savedCatalogFetch;delete window.savedCatalogFetch;document.querySelector('#quick-cancel').click();true");
  console.log('PASS an invalid Taiwan ticker blocks the whole batch and leaves the watchlist unchanged');
+ const beforeClassify=await evaluate(a,'JSON.stringify(stocks)');
+ for(const [view,label] of [['opportunities','好標的，撿!'],['cautions','壞標的，注意!']]){
+  await evaluate(a,`document.querySelector('[data-view=${view}]').click();true`);
+  assert.equal(await evaluate(a,"document.querySelector('#page-heading').textContent"),label);
+  assert.equal(await evaluate(a,"document.querySelector('#classification-content').hidden"),false);
+  assert.equal(await evaluate(a,"document.querySelector('#market-content').hidden && document.querySelector('#academy-content').hidden && document.querySelector('#macro-content').hidden"),true);
+  assert.ok(await evaluate(a,"document.querySelector('#classification-content').textContent.includes('篩選規則待設定')"));
+ }
+ assert.equal(await evaluate(a,'JSON.stringify(stocks)'),beforeClassify);
+ await cdp('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true},a);
+ assert.equal(await evaluate(a,'document.documentElement.scrollWidth<=innerWidth'),true);
+ console.log('PASS two new classification pages preserve watchlists, show no invented ratings and fit mobile');
+
 
 }catch(e){console.error(e.message);console.error(logs.slice(-3000));process.exitCode=1}finally{
  for(const item of pending.values())item.reject(Error('Test finished'));pending.clear();browser?.kill();if(worker)try{process.kill(-worker.pid,'SIGTERM')}catch{}await sleep(200);await rm(tmp,{recursive:true,force:true});
